@@ -16,12 +16,12 @@ from matplotlib.collections import LineCollection
 import os
 from scipy.interpolate import interp1d
 from multiprocessing import Process
-from get_nans import get_list_of_nans_from_traj
+from id_manual_tools.get_nans import get_list_of_nans_from_traj
 from csv import writer as csv_writer
 from rich.console import Console
 from cv2 import threshold
 from scipy.ndimage import center_of_mass
-from set_corners import main as set_corners
+from id_manual_tools.set_corners import main as set_corners
 
 # import matplotlib.cbook as cbook
 from time import sleep
@@ -652,20 +652,3 @@ class manual_tracker:
             print(f"Preloaded episode with frames {start} => {end}")
         else:
             print(f"Frames {start} => {end} were already preloaded")
-
-
-def test():
-    print("Hello world!")
-
-
-if __name__ == "__main__":
-    tracker = manual_tracker(
-        "/home/jordi/0155.MP4",
-        "/home/jordi/session_0155/trajectories_wo_gaps/trajectories_wo_gaps.npy",
-        # "/home/jordi/session_0174/trajectories/trajectories.npy",
-        # ignore_Existing_session=False,
-        check_impossible_jumps=True,
-        # automatic_check=3,
-        setup_points="corners_out",
-        fps=50,
-    )

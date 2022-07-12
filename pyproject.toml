@@ -18,11 +18,17 @@ classifiers = [
     "License :: OSI Approved :: MIT License",
     "Operating System :: OS Independent",
 ]
+dependencies = [
+  "matplotlib",
+  "numpy",
+  "cv2",
+  "rich",
+  "scipy"
+]
 
-# [project.urls]
-# "Homepage" = "not_yet"
-# "Bug Tracker" = "not_yet"
+[project.urls]
+repository = "https://github.com/jordi-torrents/id_manual_tools"
 
 
 [project.scripts]
-hello-world = "id_manual_tools.manual_tracking:test"
+trajectory_correction = "id_manual_tools.main:trajectory_correction"
