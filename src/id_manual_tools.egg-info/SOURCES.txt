@@ -1,0 +1,12 @@
+LICENCE
+README.md
+pyproject.toml
+src/id_manual_tools/__init__.py
+src/id_manual_tools/get_nans.py
+src/id_manual_tools/manual_tracking.py
+src/id_manual_tools/set_corners.py
+src/id_manual_tools.egg-info/PKG-INFO
+src/id_manual_tools.egg-info/SOURCES.txt
+src/id_manual_tools.egg-info/dependency_links.txt
+src/id_manual_tools.egg-info/entry_points.txt
+src/id_manual_tools.egg-info/top_level.txt
