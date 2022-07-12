@@ -1,20 +1,6 @@
 import id_manual_tools.manual_tracking
+from id_manual_tools.utils import dir_path, file_path, get_trajectory_path
 from argparse import ArgumentParser
-import os
-
-
-def dir_path(string):
-    if os.path.isdir(string):
-        return string
-    else:
-        raise NotADirectoryError(string)
-
-
-def file_path(string):
-    if os.path.exists(string) and not os.path.isdir(string):
-        return string
-    else:
-        raise ValueError(f"File {string} not found")
 
 
 def trajectory_correction():
@@ -32,24 +18,11 @@ def trajectory_correction():
         help="Video file (only one file)",
         required=True,
     )
+
     parser.add_argument(
-        "-o",
-        metavar="output",
-        type=str,
-        help="Output file name, default is (input)_tracked.mp4",
-        default=None,
-    )
-    parser.add_argument(
-        "-t",
-        metavar="time",
+        "-jumps_check_sigma",
         type=float,
-        help="Duration of the tracked video (in seconds), default is entire video",
         default=None,
-    )
-    parser.add_argument(
-        "-check_jumps",
-        action="store_true",
-        default=False,
         help="Check for impossible long jumps on the trajectories",
     )
 
@@ -81,13 +54,13 @@ def trajectory_correction():
     )
 
     args = parser.parse_args()
-    tracker = id_manual_tools.manual_tracking.manual_tracker(
+
+    id_manual_tools.manual_tracking.manual_tracker(
         args.video,
-        args.session,
-        # "/home/jordi/session_0174/trajectories/trajectories.npy",
-        # ignore_Existing_session=False,
-        check_impossible_jumps=True,
-        # automatic_check=3,
+        get_trajectory_path(args.s),
+        ignore_Existing_session=args.reset,
+        jumps_check_sigma=args.jumps_check_sigma,
+        automatic_check=args.auto_validation,
         setup_points="corners_out",
         fps=args.fps,
     )

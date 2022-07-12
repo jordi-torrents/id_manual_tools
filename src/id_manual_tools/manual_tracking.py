@@ -22,6 +22,7 @@ from rich.console import Console
 from cv2 import threshold
 from scipy.ndimage import center_of_mass
 from id_manual_tools.set_corners import main as set_corners
+from id_manual_tools.matplotlib_gui import matplotlib_gui
 
 # import matplotlib.cbook as cbook
 from time import sleep
@@ -36,7 +37,7 @@ class manual_tracker:
         traj_path,
         setup_points=None,
         ignore_Existing_session=False,
-        check_impossible_jumps=False,
+        jumps_check_sigma=None,
         automatic_check=0,
         fps=None,
     ):
@@ -91,9 +92,11 @@ class manual_tracker:
         for frame in range(self.total_frames):
             self.not_preloaded_frame[frame] = not os.path.exists(f"tmp/{frame}.npz")
 
-        if check_impossible_jumps:
+        if jumps_check_sigma is not None:
             vel = np.linalg.norm(np.diff(self.all_traj, axis=0), axis=2)
-            impossible_jumps = vel > (np.nanmean(vel) + 8 * np.nanstd(vel))
+            impossible_jumps = vel > (
+                np.nanmean(vel) + jumps_check_sigma * np.nanstd(vel)
+            )
             self.all_traj[:-1][impossible_jumps] = np.nan
             print(f"Number of impossible jumps: {np.sum(impossible_jumps)}")
 
@@ -147,43 +150,44 @@ class manual_tracker:
 
             plt.show()
         else:
-            if check_impossible_jumps:
+            if jumps_check_sigma is not None:
                 print("[red]There's no nans nor impossible jumps to correct")
             else:
                 print("[red]There's no nans to correct")
 
-    def next_episode(self, params, hard=True):
+    def next_episode(self, params):
         self.id, self.start, self.end, _ = params
 
-        if hard:
-            console.rule(
-                f"[bold red]Episode for fish {self.id} from {self.start} to {self.end}, {self.end-self.start} nans"
+        console.rule(
+            f"[bold red]Episode for fish {self.id} from {self.start} to {self.end}, {self.end-self.start} nans"
+        )
+        self.id_traj = self.all_traj[:, self.id, :]
+        self.traj = np.delete(self.all_traj, self.id, axis=1)
+
+        if self.N:
+            temp = self.traj.reshape(-1, self.N, 1, 2)
+            self.segments = np.concatenate([temp[:-1], temp[1:]], axis=2)
+
+        self.frame = max(0, self.start - 1)
+
+        self.zoom = 0.3
+
+        if not np.isnan(self.id_traj[self.frame, 0]):
+            self.GUI.x_center, self.GUI.y_center = self.id_traj[self.frame]
+        else:
+            self.GUI.x_center, self.GUI.y_center = np.nanmean(
+                self.traj[self.frame], axis=0
             )
-            self.id_traj = self.all_traj[:, self.id, :]
-            self.traj = np.delete(self.all_traj, self.id, axis=1)
-
-            if self.N:
-                temp = self.traj.reshape(-1, self.N, 1, 2)
-                self.segments = np.concatenate([temp[:-1], temp[1:]], axis=2)
-
-            self.frame = max(0, self.start - 1)
-
-            self.zoom = 0.3
-
-            if not np.isnan(self.id_traj[self.frame, 0]):
-                self.x_center, self.y_center = self.id_traj[self.frame]
-            else:
-                self.x_center, self.y_center = np.nanmean(self.traj[self.frame], axis=0)
 
         self.interpolation_range = np.arange(self.start, self.end)
         self.continuous_interpolation_range = np.arange(self.start - 1, self.end, 0.2)
 
-        if hard:
-            self.user_detection_history = []
-            self.set_ax_lims(do_not_draw=True)
+        self.user_detection_history = []
+        # self.set_ax_lims(do_not_draw=True)
 
         self.fit_interpolator_and_draw_frame()
-        if hard and (self.end - self.start) <= self.automatic_check:
+
+        if (self.end - self.start) <= self.automatic_check:
             sleep(0.1)
             self.key_enter()
 
@@ -231,10 +235,7 @@ class manual_tracker:
             ).start()
 
     def draw_frame(self):
-        # line.set_data(
-        #     [x - 60, x + 60, x + 60, x - 60, x - 60],
-        #     [y + 60, y + 60, y - 60, y - 60, y + 60],
-        # )
+
         self.points.set_offsets(self.traj[self.frame])
         if self.frame in self.interpolation_range:
             self.id_point.set_offsets(self.interpolator(self.frame))
@@ -260,9 +261,10 @@ class manual_tracker:
 
         origin = max(0, self.frame - 30)
         for fish in range(self.N):
-            self.lines[fish].set_segments(self.segments[origin : self.frame, fish])
-        self.fig.canvas.draw()
-        self.fig.canvas.flush_events()
+            self.LineCollections[fish].set_segments(
+                self.segments[origin : self.frame, fish]
+            )
+        self.GUI.draw_frame()
 
         # frames_that_should_be_preloaded = np.arange(
         #     max(0, self.frame - 15), min(self.total_frames, self.frame + 15)
@@ -279,19 +281,15 @@ class manual_tracker:
 
     def create_figure(self):
 
-        Lx = 0.5 * (self.xmax - self.xmin)
-        Ly = 0.5 * (self.ymax - self.ymin)
-        self.fig = plt.figure(figsize=(Lx / 150, Ly / 150))
+        self.GUI = matplotlib_gui("Manual Tracking")
 
-        self.ax = self.fig.add_axes(
-            [0, 0, 1, 1],
-            xticks=(),
-            yticks=(),
-            facecolor="gray",
-        )
+        cmap = get_cmap("gist_rainbow")
 
-        self.canvas_size = self.fig.get_size_inches() * self.fig.dpi
-        self.im = self.ax.imshow(
+        (self.interpolated_line,) = self.GUI.add_plot([], [], "w-", zorder=8)
+        (self.interpolated_points,) = self.GUI.add_plot([], [], "w.", zorder=8)
+        (self.interpolated_train,) = self.GUI.add_plot([], [], "r.", zorder=9)
+
+        self.im = self.GUI.add_image(
             [[]],
             cmap="gray",
             vmax=255,
@@ -308,41 +306,26 @@ class manual_tracker:
             snap=False,
         )
 
-        # self.fig.canvas.manager.window.findChild(QToolBar).setVisible(False)
-        self.fig.canvas.manager.set_window_title("Manual Tracking")
-        self.fig.canvas.mpl_connect("button_press_event", self.on_click)
-        self.fig.canvas.mpl_connect("button_release_event", self.on_click_release)
-        self.fig.canvas.mpl_connect("key_release_event", self.on_key)
-        self.fig.canvas.mpl_connect("scroll_event", self.on_scroll)
-        self.fig.canvas.mpl_connect("motion_notify_event", self.on_motion)
-        self.fig.canvas.mpl_connect("resize_event", self.on_resize)
-
-        cmap = get_cmap("gist_rainbow")
-
-        (self.interpolated_line,) = self.ax.plot([], [], "w-", zorder=8)
-        (self.interpolated_points,) = self.ax.plot([], [], "w.", zorder=8)
-        (self.interpolated_train,) = self.ax.plot([], [], "r.", zorder=9)
-
-        self.points = self.ax.scatter(
+        self.points = self.GUI.add_scatter(
             *np.zeros((2, self.N)),
             c=cmap(np.arange(self.N) / (self.N - 1)),
             s=10.0,
         )
 
-        self.id_point = self.ax.scatter([], [], c="k", s=10.0, zorder=10)
-        self.text = self.ax.text(
-            0.1, 0.1, "", size=15, transform=self.ax.transAxes, zorder=15
-        )
+        self.id_point = self.GUI.add_scatter([], [], c="k", s=10.0, zorder=10)
+        self.text = self.GUI.add_text(0.1, 0.1, "", size=15, zorder=15, transform=True)
 
         line_lenght = 30
-        self.lines = []  # DON'T ASK...
+        self.LineCollections = []
         for i in range(self.N):
-            lc = LineCollection([], linewidths=2)
             color = np.tile(cmap(i / (max(1, self.N - 1))), (line_lenght, 1))
             color[:, -1] = np.linspace(0, 1, line_lenght)
-            lc.set_color(color)
-            self.ax.add_collection(lc)
-            self.lines.append(lc)
+            self.LineCollections.append(LineCollection([], linewidths=2, color=color))
+
+        for linecollection in self.LineCollections:
+            self.GUI.add_collection(linecollection)
+
+        self.GUI.connect("key_release_event", self.on_key)
 
     def fit_interpolator_and_draw_frame(self):
 
@@ -425,7 +408,12 @@ class manual_tracker:
                     if self.end == (self.total_frames - 1):
                         break
 
-            self.next_episode((self.id, self.start, self.end, None), hard=False)
+            self.interpolation_range = np.arange(self.start, self.end)
+            self.continuous_interpolation_range = np.arange(
+                self.start - 1, self.end, 0.2
+            )
+            self.fit_interpolator_and_draw_frame()
+
         else:
             print(f"You are not on the boundaries, you are at frame {self.frame}")
             print(
@@ -513,45 +501,6 @@ class manual_tracker:
         image = np.uint8(image)
         return image
 
-    def on_click(self, event):
-        if event.button == 1:
-            self.has_moved = False
-            self.mouse_pressed = True
-            self.click_origin = (event.x, event.y)
-
-    def on_click_release(self, event):
-        self.mouse_pressed = False
-        if event.button == 1:
-            if not self.has_moved:
-                self.user_detection_history.append(
-                    (self.frame, tuple(self.id_traj[self.frame]))
-                )
-                self.id_traj[self.frame] = event.xdata, event.ydata
-                self.fit_interpolator_and_draw_frame()
-
-        if event.button == 3:
-            x, y = event.xdata, event.ydata
-
-            fish_im = (
-                255
-                - self.get_frame(self.frame)[
-                    int(y - self.BL - self.ymin) : int(y + self.BL - self.ymin),
-                    int(x - self.BL - self.xmin) : int(x + self.BL - self.xmin),
-                ]
-            )
-
-            _, fish_im = threshold(fish_im, 127, 255, 3)  # THRESH_TOZERO
-            # fig2, ax2 = plt.subplots()
-            # ax2.imshow(fish_im)
-            # fig2.savefig("res.png")
-            y_c, x_c = center_of_mass(fish_im)
-
-            self.user_detection_history.append(
-                (self.frame, tuple(self.id_traj[self.frame]))
-            )
-            self.id_traj[self.frame] = x_c + x - self.BL, y_c + y - self.BL
-            self.fit_interpolator_and_draw_frame()
-
     def on_key(self, event):
         try:
             int_key = int(event.key)
@@ -563,50 +512,6 @@ class manual_tracker:
                 fun()
             except AttributeError:
                 pass
-
-    def on_scroll(self, event):
-        self.zoom += 0.1 * self.zoom * event.step
-        self.set_ax_lims()
-
-    def on_motion(self, event):
-        if self.mouse_pressed:
-            self.has_moved = True
-            self.x_center -= (
-                2
-                * self.zoom
-                * self.Lx
-                * (event.x - self.click_origin[0])
-                / self.canvas_size[0]
-            )
-            self.y_center += (
-                2
-                * self.zoom
-                * self.Ly
-                * (event.y - self.click_origin[1])
-                / self.canvas_size[1]
-            )
-            self.click_origin = (event.x, event.y)
-            self.set_ax_lims()
-
-    def on_resize(self, event):
-        self.Ly = event.height * self.Ly / self.canvas_size[1]
-        self.Lx = event.width * self.Lx / self.canvas_size[0]
-        self.canvas_size = (event.width, event.height)
-        self.set_ax_lims()
-
-    def set_ax_lims(self, do_not_draw=False):
-        self.ax.set(
-            xlim=(
-                self.x_center - self.zoom * self.Lx,
-                self.x_center + self.zoom * self.Lx,
-            ),
-            ylim=(
-                self.y_center + self.zoom * self.Ly,
-                self.y_center - self.zoom * self.Ly,
-            ),
-        )
-        if not do_not_draw:
-            self.fig.canvas.draw()
 
     @staticmethod
     def process_frame_list_and_save(video_path, list_of_frames, process_fun, lims):
