@@ -1,2 +1,0 @@
-[console_scripts]
-hello-world = id_manual_tools.manual_tracking:test
