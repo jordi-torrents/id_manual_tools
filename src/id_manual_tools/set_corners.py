@@ -5,12 +5,13 @@ from rich import print
 from functools import lru_cache
 import os
 from rich.console import Console
-
+from id_manual_tools.matplotlib_gui import matplotlib_gui
+import shutil
 
 console = Console()
 
 
-class manual_tracker:
+class manual_tracker(matplotlib_gui):
     def __init__(
         self,
         video_path,
@@ -23,13 +24,13 @@ class manual_tracker:
         self.total_frames = self.cap.get(cv2.CAP_PROP_FRAME_COUNT)
         print(f"Loaded {self.video_path}")
 
-        modified_path = self.traj_path[:-4] + "_corrected.npy"
-        if os.path.exists(modified_path) and not ignore_Existing_session:
-            self.data = np.load(modified_path, allow_pickle=True).item()
-            print(f"Loaded {modified_path}")
-        else:
-            self.data = np.load(self.traj_path, allow_pickle=True).item()
-            print(f"Loaded {self.traj_path}")
+        corrected_path = self.traj_path[:-4] + "_corrected.npy"
+        if not os.path.exists(corrected_path) or ignore_Existing_session:
+            print(f"Duplicating {self.traj_path} to {corrected_path} ")
+            shutil.copyfile(self.traj_path, corrected_path)
+        self.traj_path = corrected_path
+        self.data = np.load(self.traj_path, allow_pickle=True).item()
+        print(f"Loaded {self.traj_path}")
 
         self.setup_points = {}
         for name, points in self.data["setup_points"].items():
@@ -49,8 +50,6 @@ class manual_tracker:
         self.x_center = self.xmax / 2
         self.y_center = self.ymax / 2
 
-        self.Lx = 0.5 * self.xmax
-        self.Ly = 0.5 * self.ymax
         self.actual_plotted_frame = -1
 
         self.create_figure()
@@ -58,14 +57,10 @@ class manual_tracker:
         console.rule(f"[bold red]Adding_setup points: {self.name}")
 
         self.frame = 0
-        self.zoom = 1.0
 
         self.set_ax_lims(do_not_draw=True)
 
         self.draw_frame()
-        self.mouse_pressed = False
-        self.has_moved = False
-
         plt.show()
 
     def draw_frame(self):
@@ -81,16 +76,8 @@ class manual_tracker:
 
     def create_figure(self):
 
-        self.fig = plt.figure(figsize=(self.xmax / 300, self.ymax / 300))
+        super().__init__("Setup points editor")
 
-        self.ax = self.fig.add_axes(
-            [0, 0, 1, 1],
-            xticks=(),
-            yticks=(),
-            facecolor="gray",
-        )
-
-        self.canvas_size = self.fig.get_size_inches() * self.fig.dpi
         self.im = self.ax.imshow(
             [[[0, 0, 0]]],
             extent=(
@@ -102,15 +89,6 @@ class manual_tracker:
             interpolation="none",
             animated=True,
         )
-
-        # self.fig.canvas.manager.window.findChild(QToolBar).setVisible(False)
-        self.fig.canvas.manager.set_window_title("Manual Tracking")
-        self.fig.canvas.mpl_connect("button_press_event", self.on_click)
-        self.fig.canvas.mpl_connect("button_release_event", self.on_click_release)
-        self.fig.canvas.mpl_connect("key_release_event", self.on_key)
-        self.fig.canvas.mpl_connect("scroll_event", self.on_scroll)
-        self.fig.canvas.mpl_connect("motion_notify_event", self.on_motion)
-        self.fig.canvas.mpl_connect("resize_event", self.on_resize)
 
         self.lines = {
             name: self.ax.plot(*self.close_line(*xy), ":.", label=name)[0]
@@ -171,12 +149,6 @@ class manual_tracker:
         distances = [(x - x_i) ** 2 + (y - y_i) ** 2 for x_i, y_i in zip(xs, ys)]
         return np.argmin(distances), np.min(distances)
 
-    def on_click(self, event):
-        if event.button in (1, 3):
-            self.has_moved = False
-            self.mouse_pressed = True
-            self.click_origin = (event.x, event.y)
-
     @staticmethod
     def sort_points(x, y):
 
@@ -187,87 +159,26 @@ class manual_tracker:
         ]
         return list(map(list, zip(*x)))
 
-    def on_click_release(self, event):
-        self.mouse_pressed = False
-        if event.button == 1:
+    def button_1(self, event):
+        self.setup_points[self.name][0].append(event.xdata)
+        self.setup_points[self.name][1].append(event.ydata)
+        self.setup_points[self.name] = self.sort_points(*self.setup_points[self.name])
 
-            if not self.has_moved:
-                self.setup_points[self.name][0].append(event.xdata)
-                self.setup_points[self.name][1].append(event.ydata)
+        self.lines[self.name].set_data(*self.close_line(*self.setup_points[self.name]))
+        self.draw_frame()
 
-                self.setup_points[self.name] = self.sort_points(
-                    *self.setup_points[self.name]
-                )
+    def button_3(self, event):
 
-                self.lines[self.name].set_data(
-                    *self.close_line(*self.setup_points[self.name])
-                )
-                self.draw_frame()
-        if event.button == 3:
-
-            if not self.has_moved:
-                point_id, dist = self.closest_point(
-                    event.xdata, event.ydata, *self.setup_points[self.name]
-                )
-                if dist < 1000:
-                    self.setup_points[self.name][0].pop(point_id)
-                    self.setup_points[self.name][1].pop(point_id)
-                    self.lines[self.name].set_data(
-                        *self.close_line(*self.setup_points[self.name])
-                    )
-                    self.draw_frame()
-
-    def on_key(self, event):
-        try:
-            fun = getattr(self, f"key_{event.key}")
-            fun()
-        except AttributeError:
-            print(f'[red]Unknown key "{event.key}"')
-            pass
-
-    def on_scroll(self, event):
-        self.zoom += 0.1 * self.zoom * event.step
-        self.set_ax_lims()
-
-    def on_motion(self, event):
-        if self.mouse_pressed:
-            self.has_moved = True
-            self.x_center -= (
-                2
-                * self.zoom
-                * self.Lx
-                * (event.x - self.click_origin[0])
-                / self.canvas_size[0]
-            )
-            self.y_center += (
-                2
-                * self.zoom
-                * self.Ly
-                * (event.y - self.click_origin[1])
-                / self.canvas_size[1]
-            )
-            self.click_origin = (event.x, event.y)
-            self.set_ax_lims()
-
-    def on_resize(self, event):
-        self.Ly = event.height * self.Ly / self.canvas_size[1]
-        self.Lx = event.width * self.Lx / self.canvas_size[0]
-        self.canvas_size = (event.width, event.height)
-        self.set_ax_lims()
-
-    def set_ax_lims(self, do_not_draw=False):
-        self.ax.set(
-            xlim=(
-                self.x_center - self.zoom * self.Lx,
-                self.x_center + self.zoom * self.Lx,
-            ),
-            ylim=(
-                self.y_center + self.zoom * self.Ly,
-                self.y_center - self.zoom * self.Ly,
-            ),
+        point_id, dist = self.closest_point(
+            event.xdata, event.ydata, *self.setup_points[self.name]
         )
-        if not do_not_draw:
-            self.fig.canvas.draw()
+        if dist < 1000:
+            self.setup_points[self.name][0].pop(point_id)
+            self.setup_points[self.name][1].pop(point_id)
+            self.lines[self.name].set_data(
+                *self.close_line(*self.setup_points[self.name])
+            )
+            self.draw_frame()
 
 
 def rename_setup_point(traj_path, ignore_Existing_session=False):
@@ -322,6 +233,30 @@ def view_existing_setup_points(data_path, ignore_Existing_session=False):
 
 
 def main(video_path, data_path):
+
+    view_existing_setup_points(data_path)
+    while True:
+        what_to_do = console.input(
+            "[blue]What do you rant to do, rename an existing setup points (r), modify an existing setup points (m), cerate a new one (c), viwe existing setup points (v) or quitting (q)? "
+        )
+        if what_to_do == "q":
+            print("[red]Exitting...")
+            return
+        elif what_to_do == "r":
+            rename_setup_point(data_path)
+        elif what_to_do == "v":
+            view_existing_setup_points(data_path)
+        elif what_to_do in ("m", "c"):
+            manual_tracker(
+                video_path,
+                data_path,
+                ignore_Existing_session=False,
+            )
+        else:
+            print(f'[red]Unknown answer "{what_to_do}", please enter a valid answer')
+
+
+def request_setup_points(video_path, data_path, request=None):
 
     view_existing_setup_points(data_path)
     while True:
