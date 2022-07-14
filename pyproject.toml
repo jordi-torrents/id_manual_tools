@@ -21,7 +21,7 @@ classifiers = [
 dependencies = [
   "matplotlib",
   "numpy",
-  "cv2",
+  "opencv-python",
   "rich",
   "scipy"
 ]
@@ -32,3 +32,4 @@ repository = "https://github.com/jordi-torrents/id_manual_tools"
 
 [project.scripts]
 trajectory_correction = "id_manual_tools.main:trajectory_correction"
+plot_trajectories = "id_manual_tools.plot_trajectories:main"

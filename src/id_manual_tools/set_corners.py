@@ -24,11 +24,10 @@ class manual_tracker(matplotlib_gui):
         self.total_frames = self.cap.get(cv2.CAP_PROP_FRAME_COUNT)
         print(f"Loaded {self.video_path}")
 
-        corrected_path = self.traj_path[:-4] + "_corrected.npy"
-        if not os.path.exists(corrected_path) or ignore_Existing_session:
-            print(f"Duplicating {self.traj_path} to {corrected_path} ")
-            shutil.copyfile(self.traj_path, corrected_path)
-        self.traj_path = corrected_path
+        if not os.path.exists(self.traj_path) or ignore_Existing_session:
+            print(f"Duplicating {self.traj_path} to {self.traj_path} ")
+            shutil.copyfile(self.traj_path, self.traj_path)
+
         self.data = np.load(self.traj_path, allow_pickle=True).item()
         print(f"Loaded {self.traj_path}")
 
@@ -126,9 +125,8 @@ class manual_tracker(matplotlib_gui):
         for name, points in self.setup_points.items():
             out_dict[name] = np.array(points).astype(int).T
         self.data["setup_points"] = out_dict
-        out_path = self.traj_path[:-4] + "_corrected.npy"
-        np.save(out_path, self.data)
-        print(f"[green]Data saved to {out_path}")
+        np.save(self.traj_path, self.data)
+        print(f"[green]Data saved to {self.traj_path}")
 
     def key_enter(self):
         self.key_w()
@@ -184,10 +182,9 @@ class manual_tracker(matplotlib_gui):
 def rename_setup_point(traj_path, ignore_Existing_session=False):
     traj_path = os.path.abspath(traj_path)
 
-    modified_path = traj_path[:-4] + "_corrected.npy"
-    if os.path.exists(modified_path) and not ignore_Existing_session:
-        data = np.load(modified_path, allow_pickle=True).item()
-        print(f"Loaded {modified_path}")
+    if os.path.exists(traj_path) and not ignore_Existing_session:
+        data = np.load(traj_path, allow_pickle=True).item()
+        print(f"Loaded {traj_path}")
     else:
         data = np.load(traj_path, allow_pickle=True).item()
         print(f"Loaded {traj_path}")
@@ -202,8 +199,8 @@ def rename_setup_point(traj_path, ignore_Existing_session=False):
         data["setup_points"][new_name] = data["setup_points"].pop(old_name)
         console.rule(f'[green]Succesfully renamed points "{old_name}" to "{new_name}"')
 
-        np.save(modified_path, data)
-        print(f"[green]Data saved to {modified_path}")
+        np.save(traj_path, data)
+        print(f"[green]Data saved to {traj_path}")
 
     else:
         print(f'[red]No setup points named "{old_name}", aborting...')
@@ -212,10 +209,9 @@ def rename_setup_point(traj_path, ignore_Existing_session=False):
 def view_existing_setup_points(data_path, ignore_Existing_session=False):
     data_path = os.path.abspath(data_path)
 
-    modified_path = data_path[:-4] + "_corrected.npy"
     loaded_path = (
-        modified_path
-        if os.path.exists(modified_path) and not ignore_Existing_session
+        data_path
+        if os.path.exists(data_path) and not ignore_Existing_session
         else data_path
     )
 
@@ -224,9 +220,8 @@ def view_existing_setup_points(data_path, ignore_Existing_session=False):
     if not isinstance(data["setup_points"], dict):
         data["setup_points"] = {}
 
-    out_path = data_path[:-4] + "_corrected.npy"
-    np.save(out_path, data)
-    print(f"[green]Data with empty dict saved to {out_path}")
+    np.save(data_path, data)
+    print(f"[green]Data with empty dict saved to {data_path}")
 
     for name, points in data["setup_points"].items():
         print(f'Found setup points "{name}" of {len(points)} points')

@@ -43,6 +43,7 @@ class manual_tracker(matplotlib_gui):
         automatic_check=None,
         fps=None,
     ):
+        self.jumps_check_sigma = jumps_check_sigma
         console.rule("[green]Welcome to the id_manual_tools manual validator")
         self.automatic_check = automatic_check
         self.video_path = os.path.abspath(video_path)
@@ -81,7 +82,7 @@ class manual_tracker(matplotlib_gui):
         if setup_points is not None:
             try:
                 exist_required_setup_points = setup_points in self.data["setup_points"]
-            except KeyError:
+            except (KeyError, TypeError):
                 exist_required_setup_points = False
 
             if not exist_required_setup_points:
@@ -119,7 +120,7 @@ class manual_tracker(matplotlib_gui):
                 os.path.join(self.preloaded_frames_path, f"{frame}.npz")
             )
 
-        copy_of_traj = np.copy(self.all_traj)
+        copy_of_traj = np.zeros_like(self.all_traj)
         if jumps_check_sigma is not None:
             vel = np.linalg.norm(np.diff(self.all_traj, axis=0), axis=2)
             impossible_jumps = vel > (
@@ -127,27 +128,15 @@ class manual_tracker(matplotlib_gui):
             )
             copy_of_traj[:-1][impossible_jumps] = np.nan
             print(f"Number of impossible jumps: {np.sum(impossible_jumps)}")
+            self.list_of_jumps = get_list_of_nans_from_traj(
+                copy_of_traj, sort_by="start"
+            )
+        else:
+            self.list_of_jumps = []
 
-        self.list_of_nans = get_list_of_nans_from_traj(copy_of_traj, sort_by="start")
+        self.list_of_nans = get_list_of_nans_from_traj(self.all_traj, sort_by="start")
 
-        # if jumps_check_sigma is not None:
-        #     vel = np.linalg.norm(np.diff(self.all_traj, axis=0), axis=2)
-        #     impossible_jumps = vel > (
-        #         np.nanmean(vel) + jumps_check_sigma * np.nanstd(vel)
-        #     )
-        #     for time in range(self.total_frames - 1):
-        #         for fish in range(self.N + 1):
-        #             if impossible_jumps[time, fish]:
-        #                 self.list_of_nans.append((fish, time, time + 1, 0))
-        # self.all_traj[:-1][impossible_jumps] = np.nan
-        # print(f"Number of impossible jumps: {np.sum(impossible_jumps)}")
-
-        output = os.path.abspath("./list_of_nans.csv")
-        with open(output, "w", newline="") as csvfile:
-            csvfile.write("fish_id,start,end,duration\n")
-            writer = csv_writer(csvfile)
-            writer.writerows(self.list_of_nans)
-        print(f"List of nans saved at {output}")
+        self.write_lists_of_nans_and_jumps()
 
         self.limits = (self.xmin, self.xmax, self.ymin, self.ymax)
         print(f"xmin, xmax, ymin, ymax = {self.limits}")
@@ -157,9 +146,9 @@ class manual_tracker(matplotlib_gui):
         self.pad_extra = 150
         self.actual_plotted_frame = -1
 
-        if self.list_of_nans:
+        if self.list_of_nans or self.list_of_jumps:
             list_of_frames_to_preload = set()
-            for id, start, end, duration in self.list_of_nans:
+            for id, start, end, duration in self.list_of_nans + self.list_of_jumps:
                 pad = min(self.pad, 1 + end - start)
                 for frame in range(
                     max(0, start - pad), min(self.total_frames, end + pad)
@@ -182,7 +171,11 @@ class manual_tracker(matplotlib_gui):
             self.create_figure()
 
             self.Delta = 1
-            self.next_episode(self.list_of_nans.pop(-1))
+            if self.list_of_nans:
+                self.next_episode(self.list_of_nans.pop(-1))
+            elif self.list_of_jumps:
+                self.next_episode(self.list_of_jumps.pop(-1))
+
             plt.show()
         else:
             if jumps_check_sigma is not None:
@@ -437,24 +430,36 @@ class manual_tracker(matplotlib_gui):
         self.id_traj[self.interpolation_range] = self.interpolator(
             self.interpolation_range
         ).T
+
         self.list_of_nans = get_list_of_nans_from_traj(self.all_traj, sort_by="start")
+
         if self.list_of_nans:
             self.next_episode(self.list_of_nans.pop(-1))
+        elif self.list_of_jumps:
+            self.next_episode(self.list_of_jumps.pop(-1))
         else:
             self.key_w()
             plt.close()
 
     def key_w(self):
         """Write on disk the actual state of the trajectory array"""
-        out_path = self.traj_path[:-4] + "_corrected.npy"
-        print(f"Saving data to {out_path}")
-        np.save(out_path, self.data)
-        output = os.path.abspath("./list_of_nans.csv")
-        with open(output, "w", newline="") as csvfile:
+        print(f"Saving data to {self.traj_path}")
+        np.save(self.traj_path, self.data)
+        self.write_lists_of_nans_and_jumps()
+
+    def write_lists_of_nans_and_jumps(self):
+        with open("list_of_nans.csv", "w", newline="") as csvfile:
             csvfile.write("fish_id,start,end,duration\n")
             writer = csv_writer(csvfile)
             writer.writerows(self.list_of_nans)
-        print(f"List of nans saved at {output}")
+        print(f"List of nans saved at {os.path.abspath('list_of_nans.csv')}")
+
+        if self.jumps_check_sigma is not None:
+            with open("list_of_jumps.csv", "w", newline="") as csvfile:
+                csvfile.write("fish_id,start,end,duration\n")
+                writer = csv_writer(csvfile)
+                writer.writerows(self.list_of_jumps)
+            print(f"List of jumps saved at {os.path.abspath('list_of_jumps.csv')}")
 
     def key_g(self):
         """Apply key d and key x sequentially"""

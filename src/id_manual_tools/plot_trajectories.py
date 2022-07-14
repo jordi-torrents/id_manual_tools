@@ -151,10 +151,10 @@ fig.patch.set_facecolor("black")
 axs = fig.add_axes([0, 0, 1, 1], facecolor="k", xticks=(), yticks=())
 axs.set(xticks=(), yticks=(), xlim=(xmin, xmax), ylim=(ymax, ymin))
 
-if N > 1:
-    points = axs.scatter(*np.zeros((2, N)), c=cmap(np.arange(N) / (N - 1)), s=20.0)
-else:
-    points = axs.scatter(*np.zeros((2, N)), c=cmap(0), s=20.0)
+colors = cmap((pos[0, :, 0] > 2000).astype(float) * 0.5)
+# colors = cmap(np.arange(N) / N)
+
+points = axs.scatter(*np.zeros((2, N)), c=colors, s=20.0)
 
 im = axs.imshow(
     np.zeros((ny, nx)), origin="upper", cmap="gray", vmax=args.vmax, vmin=args.vmin
@@ -163,10 +163,7 @@ im = axs.imshow(
 lines = []  # DON'T ASK...
 for i in range(N):
     lc = LineCollection([])
-    if N > 1:
-        color = np.tile(cmap(i / (N - 1)), (line_lenght, 1))
-    else:
-        color = np.tile(cmap(i), (line_lenght, 1))
+    color = np.tile(colors[i], (line_lenght, 1))
     color[:, -1] = np.linspace(0, 1, line_lenght)
     lc.set_color(color)
     axs.add_collection(lc)
@@ -224,30 +221,34 @@ rmtree(tmp_folder, ignore_errors=True)
 makedirs(tmp_folder)
 
 
-with Pool(args.n) as p, open("files.txt", "w") as file:
-    for filename in p.map(thread_run, range(args.n)):
-        file.write("file " + filename + "\n")
-print("\n" * args.n)
+def main():
+    with Pool(args.n) as p, open("files.txt", "w") as file:
+        for filename in p.map(thread_run, range(args.n)):
+            file.write("file " + filename + "\n")
+    print("\n" * args.n)
+
+    call(
+        [
+            "ffmpeg",
+            "-safe",
+            "0",
+            "-hide_banner",
+            "-loglevel",
+            "error",
+            "-f",
+            "concat",
+            "-y",
+            "-i",
+            "files.txt",
+            "-c",
+            "copy",
+            args.o if args.o else splitext(args.i)[0] + "_tracked.mp4",
+        ]
+    )
+
+    rmtree(tmp_folder)
+    remove("files.txt")
 
 
-call(
-    [
-        "ffmpeg",
-        "-safe",
-        "0",
-        "-hide_banner",
-        "-loglevel",
-        "error",
-        "-f",
-        "concat",
-        "-y",
-        "-i",
-        "files.txt",
-        "-c",
-        "copy",
-        args.o if args.o else splitext(args.i)[0] + "_tracked.mp4",
-    ]
-)
-
-rmtree(tmp_folder)
-remove("files.txt")
+if __name__ == "__main__":
+    main()
