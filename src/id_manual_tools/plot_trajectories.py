@@ -151,8 +151,8 @@ fig.patch.set_facecolor("black")
 axs = fig.add_axes([0, 0, 1, 1], facecolor="k", xticks=(), yticks=())
 axs.set(xticks=(), yticks=(), xlim=(xmin, xmax), ylim=(ymax, ymin))
 
-colors = cmap((pos[0, :, 0] > 2000).astype(float) * 0.5)
-# colors = cmap(np.arange(N) / N)
+# colors = cmap((pos[0, :, 0] > 2000).astype(float) * 0.5)
+colors = cmap(np.arange(N) / N)
 
 points = axs.scatter(*np.zeros((2, N)), c=colors, s=20.0)
 
@@ -160,14 +160,11 @@ im = axs.imshow(
     np.zeros((ny, nx)), origin="upper", cmap="gray", vmax=args.vmax, vmin=args.vmin
 )
 
-lines = []  # DON'T ASK...
+LineCollections = []  # DON'T ASK...
 for i in range(N):
-    lc = LineCollection([])
     color = np.tile(colors[i], (line_lenght, 1))
     color[:, -1] = np.linspace(0, 1, line_lenght)
-    lc.set_color(color)
-    axs.add_collection(lc)
-    lines.append(lc)
+    LineCollections.append(axs.add_collection(LineCollection([], color=color)))
 
 
 def thread_run(thread):
@@ -197,7 +194,7 @@ def thread_run(thread):
 
         origin = max(0, global_frame - line_lenght)
         for fish in range(N):
-            lines[fish].set_segments(segments[origin:global_frame, fish])
+            LineCollections[fish].set_segments(segments[origin:global_frame, fish])
         return
 
     ani = FuncAnimation(

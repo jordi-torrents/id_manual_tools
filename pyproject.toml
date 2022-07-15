@@ -31,5 +31,8 @@ repository = "https://github.com/jordi-torrents/id_manual_tools"
 
 
 [project.scripts]
-trajectory_correction = "id_manual_tools.main:trajectory_correction"
-plot_trajectories = "id_manual_tools.plot_trajectories:main"
+id_manual_tools_correct_trajectories = "id_manual_tools.correct_trajectories:main"
+id_manual_tools_plot_trajectories = "id_manual_tools.plot_trajectories:main"
+id_manual_tools_set_corners = 'id_manual_tools.set_corners:main'
+id_manual_tools_get_nans = 'id_manual_tools.get_nans:main'
+id_manual_tools_concatenate_traj = 'id_manual_tools.concatenate_traj:main'

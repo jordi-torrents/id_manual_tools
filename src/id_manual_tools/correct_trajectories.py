@@ -1,16 +1,8 @@
-# import matplotlib
-
-# # matplotlib.use("QtAgg")
-# # matplotlib.use("TkAgg")
 import matplotlib.pyplot as plt
 import numpy as np
 import cv2
 from rich import print
-
-# from rich.progress import track
 from matplotlib.cm import get_cmap
-
-# from PyQt5.QtWidgets import QToolBar
 from functools import lru_cache
 from matplotlib.collections import LineCollection
 import os
@@ -19,29 +11,29 @@ from multiprocessing import Process
 from id_manual_tools.get_nans import get_list_of_nans_from_traj
 from csv import writer as csv_writer
 from rich.console import Console
-from cv2 import threshold
 from scipy.ndimage import center_of_mass
-from id_manual_tools.set_corners import request_setup_points
+from id_manual_tools.set_corners import arg_main as set_corners
 from id_manual_tools.matplotlib_gui import matplotlib_gui
 from rich.table import Table
 import shutil
-
-# import matplotlib.cbook as cbook
 from time import sleep
+from id_manual_tools.utils import file_path, trajectory_path
+from argparse import ArgumentParser
 
+# from PyQt5.QtWidgets import QToolBar
 console = Console()
 
 
-class manual_tracker(matplotlib_gui):
+class trajectory_corrector(matplotlib_gui):
     def __init__(
         self,
         video_path,
         traj_path,
         setup_points=None,
-        ignore_Existing_session=False,
         jumps_check_sigma=None,
         automatic_check=None,
         fps=None,
+        n_cores=4,
     ):
         self.jumps_check_sigma = jumps_check_sigma
         console.rule("[green]Welcome to the id_manual_tools manual validator")
@@ -71,26 +63,27 @@ class manual_tracker(matplotlib_gui):
         self.cap = cv2.VideoCapture(video_path)
         print(f"Loaded video {self.video_path}")
 
-        corrected_path = self.traj_path[:-4] + "_corrected.npy"
-        if not os.path.exists(corrected_path) or ignore_Existing_session:
-            print(f"Duplicating {self.traj_path} to {corrected_path} ")
-            shutil.copyfile(self.traj_path, corrected_path)
-        self.traj_path = corrected_path
         self.data = np.load(self.traj_path, allow_pickle=True).item()
-        print(f"Loaded {self.traj_path}")
+        print(f"Loaded data  {self.traj_path}")
 
         if setup_points is not None:
             try:
                 exist_required_setup_points = setup_points in self.data["setup_points"]
             except (KeyError, TypeError):
                 exist_required_setup_points = False
-
-            if not exist_required_setup_points:
-                request_setup_points(
-                    self.video_path, self.traj_path, request=setup_points
+            while not exist_required_setup_points:
+                print(
+                    f"Setup_points setter is launched to define the user required setup_points {setup_points}"
                 )
-                self.data = np.load(self.traj_path, allow_pickle=True).item()
-                print(f"Reloaded {self.traj_path}")
+                set_corners(self.video_path, self.data)
+
+                try:
+                    exist_required_setup_points = (
+                        setup_points in self.data["setup_points"]
+                    )
+                except (KeyError, TypeError):
+                    exist_required_setup_points = False
+
             corners = self.data["setup_points"][setup_points]
             self.xmin = int(np.min(corners[:, 0]))
             self.xmax = int(np.max(corners[:, 0]))
@@ -166,7 +159,7 @@ class manual_tracker(matplotlib_gui):
             print(f"{len(list_of_frames_to_preload)} frames to preload")
             list_of_frames_to_preload.sort()
             if list_of_frames_to_preload:
-                self.preload_frames_list(list_of_frames_to_preload)
+                self.preload_frames_list(list_of_frames_to_preload, n_cores=n_cores)
 
             self.create_figure()
 
@@ -234,12 +227,12 @@ class manual_tracker(matplotlib_gui):
         for s in range(0, n_frames, chunks):
             # self.not_preloaded_frame[start:end] = False
             Process(
-                target=manual_tracker.process_frame_list_and_save,
+                target=trajectory_corrector.process_frame_list_and_save,
                 args=(
                     self.preloaded_frames_path,
                     self.video_path,
                     list_of_frames[s : s + chunks],
-                    manual_tracker.process_image,
+                    trajectory_corrector.process_image,
                     self.limits,
                 ),
             ).start()
@@ -605,3 +598,70 @@ class manual_tracker(matplotlib_gui):
         print(
             f"Preloaded episode with frames {list_of_frames[0]} => {list_of_frames[-1]}"
         )
+
+
+def main():
+    parser = ArgumentParser()
+    parser.add_argument(
+        "-s",
+        metavar="session",
+        type=str,
+        help="idTracker.ai succesful session directory or trajectory file",
+        required=True,
+    )
+    parser.add_argument(
+        "-video",
+        type=file_path,
+        help="Video file (only one file)",
+        required=True,
+    )
+
+    parser.add_argument(
+        "-jumps_check_sigma",
+        type=float,
+        default=None,
+        help="Check for impossible long jumps on the trajectories",
+    )
+
+    parser.add_argument(
+        "-reset",
+        action="store_true",
+        default=False,
+        help="Ignores any previously edited file",
+    )
+
+    parser.add_argument(
+        "-auto_validation",
+        default=0,
+        type=int,
+        help="Max length of nan episode to apply auto-correction",
+    )
+
+    parser.add_argument(
+        "-fps",
+        default=0,
+        type=int,
+        help="Overwrite the frame rate of the session",
+    )
+    parser.add_argument(
+        "-n",
+        type=int,
+        default=10,
+        help="number of threads for parallel processing. Default is 4",
+    )
+
+    args = parser.parse_args()
+
+    trajectory_corrector(
+        args.video,
+        trajectory_path(args.s, reset=args.reset),
+        jumps_check_sigma=args.jumps_check_sigma,
+        automatic_check=args.auto_validation,
+        setup_points="corners_out",
+        fps=args.fps,
+        n_cores=args.n,
+    )
+
+
+if __name__ == "__main__":
+    main()

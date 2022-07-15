@@ -6,57 +6,45 @@ from functools import lru_cache
 import os
 from rich.console import Console
 from id_manual_tools.matplotlib_gui import matplotlib_gui
-import shutil
+from rich.table import Table
+from id_manual_tools.utils import trajectory_path
+from argparse import ArgumentParser
+from rich.align import Align
+
 
 console = Console()
 
 
-class manual_tracker(matplotlib_gui):
-    def __init__(
-        self,
-        video_path,
-        traj_path,
-        ignore_Existing_session=False,
-    ):
-        self.traj_path = os.path.abspath(traj_path)
-        self.video_path = os.path.abspath(video_path)
+class setup_points_setter(matplotlib_gui):
+    def __init__(self, video_path, data, name):
+
         self.cap = cv2.VideoCapture(video_path)
         self.total_frames = self.cap.get(cv2.CAP_PROP_FRAME_COUNT)
-        print(f"Loaded {self.video_path}")
+        print(f"Loaded {os.path.abspath(video_path)}")
 
-        if not os.path.exists(self.traj_path) or ignore_Existing_session:
-            print(f"Duplicating {self.traj_path} to {self.traj_path} ")
-            shutil.copyfile(self.traj_path, self.traj_path)
-
-        self.data = np.load(self.traj_path, allow_pickle=True).item()
-        print(f"Loaded {self.traj_path}")
+        self.data = data
 
         self.setup_points = {}
-        for name, points in self.data["setup_points"].items():
-            print(f'Found setup points "{name}" of {len(points)} points')
-            self.setup_points[name] = [list(points[:, 0]), list(points[:, 1])]
+        for name_i, points in self.data["setup_points"].items():
+            self.setup_points[name_i] = [list(points[:, 0]), list(points[:, 1])]
 
-        self.name = console.input(
-            "Enter the name of the setup points to modify/create: "
-        )
+        self.name = name
 
         if not self.name in self.setup_points:
             self.setup_points[self.name] = [[], []]
+            console.rule(f"[bold red]Creating setup points: {self.name}")
+        else:
+            console.rule(f"[bold red]Modifying setup points: {self.name}")
 
         self.xmax = self.cap.get(cv2.CAP_PROP_FRAME_WIDTH)
         self.ymax = self.cap.get(cv2.CAP_PROP_FRAME_HEIGHT)
 
-        self.x_center = self.xmax / 2
-        self.y_center = self.ymax / 2
-
         self.actual_plotted_frame = -1
 
-        self.create_figure()
-
-        console.rule(f"[bold red]Adding_setup points: {self.name}")
-
         self.frame = 0
-
+        self.create_figure()
+        self.x_center = self.xmax / 2
+        self.y_center = self.ymax / 2
         self.set_ax_lims(do_not_draw=True)
 
         self.draw_frame()
@@ -70,8 +58,7 @@ class manual_tracker(matplotlib_gui):
             self.text.set_text(f"Frame {self.frame}")
             self.actual_plotted_frame = self.frame
 
-        self.fig.canvas.draw()
-        self.fig.canvas.flush_events()
+        self.draw_and_flush()
 
     def create_figure(self):
 
@@ -120,16 +107,12 @@ class manual_tracker(matplotlib_gui):
     def key_right(self):
         self.key_d()
 
-    def key_w(self):
+    def key_enter(self):
         out_dict = {}
         for name, points in self.setup_points.items():
             out_dict[name] = np.array(points).astype(int).T
         self.data["setup_points"] = out_dict
-        np.save(self.traj_path, self.data)
-        print(f"[green]Data saved to {self.traj_path}")
-
-    def key_enter(self):
-        self.key_w()
+        print(f"[green]Data writed in trajectory file")
         plt.close()
 
     @lru_cache(maxsize=20)
@@ -179,104 +162,90 @@ class manual_tracker(matplotlib_gui):
             self.draw_frame()
 
 
-def rename_setup_point(traj_path, ignore_Existing_session=False):
-    traj_path = os.path.abspath(traj_path)
-
-    if os.path.exists(traj_path) and not ignore_Existing_session:
-        data = np.load(traj_path, allow_pickle=True).item()
-        print(f"Loaded {traj_path}")
-    else:
-        data = np.load(traj_path, allow_pickle=True).item()
-        print(f"Loaded {traj_path}")
-
-    for name, points in data["setup_points"].items():
-        print(f'Found setup points "{name}" of {len(points)} points')
-
+def rename_setup_point(setup_points):
     old_name = console.input(f"Enter the OLD name of the setup points: ")
-    if old_name in data["setup_points"]:
-
+    if old_name in setup_points:
         new_name = console.input(f'Enter the NEW name for setup points "{old_name}": ')
-        data["setup_points"][new_name] = data["setup_points"].pop(old_name)
+        setup_points[new_name] = setup_points.pop(old_name)
         console.rule(f'[green]Succesfully renamed points "{old_name}" to "{new_name}"')
-
-        np.save(traj_path, data)
-        print(f"[green]Data saved to {traj_path}")
-
     else:
         print(f'[red]No setup points named "{old_name}", aborting...')
 
 
-def view_existing_setup_points(data_path, ignore_Existing_session=False):
-    data_path = os.path.abspath(data_path)
+def delete_setup_point(setup_points):
+    name = console.input(f"Enter the name of the setup points to delete: ")
+    if name in setup_points:
+        setup_points.pop(name)
+        console.rule(f'[green]Succesfully deleted "{name}"')
+    else:
+        print(f'[red]No setup points named "{name}", aborting...')
 
-    loaded_path = (
-        data_path
-        if os.path.exists(data_path) and not ignore_Existing_session
-        else data_path
-    )
 
-    data = np.load(loaded_path, allow_pickle=True).item()
-    print(f"Loaded {loaded_path}")
+def setup_points_table(setup_points):
+
+    setup_points = [(name, len(points)) for name, points in setup_points.items()]
+    table = Table(title="setting_points")
+
+    table.add_column("key", justify="center", style="cyan")
+    table.add_column("# of points", justify="center", style="magenta")
+
+    for key, length in setup_points:
+        table.add_row(key, f"{length}")
+
+    return table
+
+
+def arg_main(video_path, data):
+    console.rule("Welcome to the setup_points setter!")
+
+    if isinstance(data, str):
+        input_arg = "path"
+        path = trajectory_path(data)
+        data = np.load(path, allow_pickle=True).item()
+    else:
+        input_arg = "data"
+
     if not isinstance(data["setup_points"], dict):
         data["setup_points"] = {}
+        print(f"[green]Created an empty dict for setup_points")
 
-    np.save(data_path, data)
-    print(f"[green]Data with empty dict saved to {data_path}")
-
-    for name, points in data["setup_points"].items():
-        print(f'Found setup points "{name}" of {len(points)} points')
-
-
-def main(video_path, data_path):
-
-    view_existing_setup_points(data_path)
     while True:
+        console.print(Align.center(setup_points_table(data["setup_points"])))
         what_to_do = console.input(
-            "[blue]What do you rant to do, rename an existing setup points (r), modify an existing setup points (m), cerate a new one (c), viwe existing setup points (v) or quitting (q)? "
+            "[blue]Name an existing (or not) setup_points to modify it or deletet it (or create it). You can also write 'rename' or 'delete' to rename or delete an existing setup_point or 'q' to save and exit the app: "
         )
         if what_to_do == "q":
-            print("[red]Exitting...")
+            if input_arg == "path":
+                np.save(path, data)
+                console.print(f"Data saved to {path}")
+            console.rule("bye!")
             return
-        elif what_to_do == "r":
-            rename_setup_point(data_path)
-        elif what_to_do == "v":
-            view_existing_setup_points(data_path)
-        elif what_to_do in ("m", "c"):
-            manual_tracker(
-                video_path,
-                data_path,
-                ignore_Existing_session=False,
-            )
-        else:
-            print(f'[red]Unknown answer "{what_to_do}", please enter a valid answer')
+        elif what_to_do == "rename":
+            rename_setup_point(data["setup_points"])
+        elif what_to_do == "delete":
+            delete_setup_point(data["setup_points"])
+        elif what_to_do:
+            setup_points_setter(video_path, data, name=what_to_do)
 
 
-def request_setup_points(video_path, data_path, request=None):
-
-    view_existing_setup_points(data_path)
-    while True:
-        what_to_do = console.input(
-            "[blue]What do you rant to do, rename an existing setup points (r), modify an existing setup points (m), cerate a new one (c), viwe existing setup points (v) or quitting (q)? "
-        )
-        if what_to_do == "q":
-            print("[red]Exitting...")
-            return
-        elif what_to_do == "r":
-            rename_setup_point(data_path)
-        elif what_to_do == "v":
-            view_existing_setup_points(data_path)
-        elif what_to_do in ("m", "c"):
-            manual_tracker(
-                video_path,
-                data_path,
-                ignore_Existing_session=False,
-            )
-        else:
-            print(f'[red]Unknown answer "{what_to_do}", please enter a valid answer')
+def main():
+    parser = ArgumentParser()
+    parser.add_argument(
+        "-s",
+        metavar="session",
+        type=trajectory_path,
+        help="idTracker.ai succesful session directory or trajectory file",
+        required=True,
+    )
+    parser.add_argument(
+        "-video",
+        type=str,
+        help="Video file (only one file)",
+        required=True,
+    )
+    args = parser.parse_args()
+    arg_main(args.video, args.s)
 
 
 if __name__ == "__main__":
-    main(
-        video_path="/media/jordi/Fish_videos_LaCie/Videos_20220621_(n=2)/GX010165.MP4",
-        data_path="/home/jordi/drive-download-20220704T131649Z-001/Videos_20220621_(n=2)/20220621_0165.npy",
-    )
+    main()

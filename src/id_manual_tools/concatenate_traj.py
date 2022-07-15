@@ -1,4 +1,3 @@
-#%%
 import numpy as np
 from statistics import mode
 import matplotlib.pyplot as plt

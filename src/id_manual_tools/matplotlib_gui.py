@@ -47,19 +47,16 @@ class matplotlib_gui:
                 getattr(self, f"button_{event.button}")(event)
 
     def on_key(self, event):
-        print(event.key)
         try:
             int_key = int(event.key)
         except ValueError:
             try:
                 getattr(self, f"key_{event.key}")()
-                print("runn")
-            except AttributeError as e:
-                print(e)
+            except AttributeError:
                 pass
         else:
             if hasattr(self, "key_number"):
-                self.key_number(int(event.key))
+                self.key_number(int_key)
 
     def on_scroll(self, event):
         self.x_center += (self.x_center - event.xdata) * 0.1 * event.step
