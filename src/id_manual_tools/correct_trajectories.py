@@ -31,7 +31,7 @@ class trajectory_corrector(matplotlib_gui):
         traj_path,
         setup_points=None,
         jumps_check_sigma=None,
-        automatic_check=None,
+        automatic_check=-1,
         fps=None,
         n_cores=4,
     ):
@@ -138,15 +138,19 @@ class trajectory_corrector(matplotlib_gui):
         self.pad = 7
         self.pad_extra = 150
         self.actual_plotted_frame = -1
+        self.G_pressed = False
 
         if self.list_of_nans or self.list_of_jumps:
             list_of_frames_to_preload = set()
             for id, start, end, duration in self.list_of_nans + self.list_of_jumps:
-                pad = min(self.pad, 1 + end - start)
-                for frame in range(
-                    max(0, start - pad), min(self.total_frames, end + pad)
-                ):
-                    list_of_frames_to_preload.add(frame)
+                if duration <= self.automatic_check:
+                    list_of_frames_to_preload.add(max(0, start - 1))
+                else:
+                    pad = min(self.pad, duration)
+                    for frame in range(
+                        max(0, start - pad), min(self.total_frames, end + pad)
+                    ):
+                        list_of_frames_to_preload.add(frame)
             list_of_frames_to_preload = list(list_of_frames_to_preload)
             print(f"{len(list_of_frames_to_preload)} frames needed")
             list_of_frames_to_preload = [
@@ -205,10 +209,9 @@ class trajectory_corrector(matplotlib_gui):
 
         self.fit_interpolator_and_draw_frame()
 
-        if self.automatic_check is not None:
-            if (self.end - self.start) <= self.automatic_check:
-                sleep(0.1)
-                self.key_enter()
+        if (self.end - self.start) <= self.automatic_check:
+            sleep(0.1)
+            self.key_enter()
 
     def preload_frames_list(self, list_of_frames, n_cores=10):
 
@@ -333,15 +336,17 @@ class trajectory_corrector(matplotlib_gui):
         )
         self.draw_frame()
 
-    def key_a(self):
+    def key_a(self, draw=True):
         """Go back Delta timesteps"""
         self.frame = max(0, self.frame - self.Delta)
-        self.draw_frame()
+        if draw:
+            self.draw_frame()
 
-    def key_d(self):
+    def key_d(self, draw=True):
         """Advance Delta timesteps"""
         self.frame = min(self.total_frames - 1, self.frame + self.Delta)
-        self.draw_frame()
+        if draw:
+            self.draw_frame()
 
     def key_left(self):
         """Go back Delta timesteps"""
@@ -454,10 +459,26 @@ class trajectory_corrector(matplotlib_gui):
                 writer.writerows(self.list_of_jumps)
             print(f"List of jumps saved at {os.path.abspath('list_of_jumps.csv')}")
 
+    def recenter(self):
+        if self.frame in self.interpolation_range:
+            self.x_center, self.y_center = self.interpolator(self.frame)
+        else:
+            self.x_center, self.y_center = self.id_traj[self.frame]
+        self.set_ax_lims(do_not_draw=True)
+
     def key_g(self):
         """Apply key d and key x sequentially"""
-        self.key_d()
-        self.key_x()
+        self.key_d(draw=False)
+        self.key_x(recenter=True)
+
+    def key_G(self):
+        """Apply key g until the end of the episode is reached"""
+        self.G_pressed = not self.G_pressed
+        while self.G_pressed:
+            self.key_g()
+            if self.frame >= self.end:
+                self.G_pressed = False
+        self.draw_frame()
 
     def key_number(self, number):
         if number:
@@ -494,10 +515,12 @@ class trajectory_corrector(matplotlib_gui):
         table.add_row("q", "Quit application")
         console.print(table)
 
-    def key_x(self):
+    def key_x(self, recenter=False):
         """Set the actual position of the blob by finding the center of mass of the image drawned around the interpolated position"""
+        if recenter:
+            self.recenter()
         if self.frame in self.interpolation_range:
-            self.found_blob(self.interpolator(self.frame))
+            self.found_blob(*self.interpolator(self.frame))
 
     @lru_cache(maxsize=1024)
     def get_frame(self, frame):
@@ -547,6 +570,8 @@ class trajectory_corrector(matplotlib_gui):
             1,
             cv2.THRESH_BINARY + cv2.THRESH_OTSU,
         )
+
+        # TODO: If there are more than one blob in the mask, return error and stop key_G()
 
         # cv2.imwrite("fish.png", fish_im * fish_im_mask)
 

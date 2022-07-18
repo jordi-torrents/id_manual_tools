@@ -3,7 +3,7 @@ from numpy import load
 from shutil import copyfile
 
 
-def trajectory_path(session_path, reset=False, read_only=True):
+def trajectory_path(session_path, reset=False, read_only=False):
     session_path = os.path.abspath(session_path)
 
     if not os.path.exists(session_path):
