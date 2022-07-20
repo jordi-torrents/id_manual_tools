@@ -39,12 +39,13 @@ class setup_points_setter(matplotlib_gui):
         self.xmax = self.cap.get(cv2.CAP_PROP_FRAME_WIDTH)
         self.ymax = self.cap.get(cv2.CAP_PROP_FRAME_HEIGHT)
 
-        self.actual_plotted_frame = -1
-
-        self.frame = 0
         self.create_figure()
+        self.actual_plotted_frame = -1
+        self.frame = 0
         self.x_center = self.xmax / 2
         self.y_center = self.ymax / 2
+
+        self.zoom = self.ymax / (2 * self.Ly)
         self.set_ax_lims(do_not_draw=True)
 
         self.draw_frame()

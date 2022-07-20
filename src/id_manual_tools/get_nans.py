@@ -1,6 +1,6 @@
 import numpy as np
 import csv
-from id_manual_tools.utils import trajectory_path, file_path
+from id_manual_tools.utils import trajectory_path
 
 
 def find_nans_1D(data, id=None):
@@ -56,7 +56,6 @@ def get_list_of_nans_from_traj(traj, sort_by="length"):
 
 def main():
     import argparse
-    import os
 
     parser = argparse.ArgumentParser(
         description="Nans observation in idtrackeri.ai trajectories."
@@ -70,20 +69,20 @@ def main():
         "-o", type=str, default=None, help="output file, default input[:4]+'_nans.csv'"
     )
     args = parser.parse_args()
-    output = args.output if args.output else args.input[:-4] + "_nans.csv"
 
-    traj = np.load(trajectory_path(args.i, read_only=True), allow_pickle=True).item()[
-        "trajectories"
-    ][..., 0]
+    input_path = trajectory_path(args.i, read_only=True)
+
+    output_path = args.o if args.o else input_path[:-4] + "_nans.csv"
+
+    traj = np.load(input_path, allow_pickle=True).item()["trajectories"][..., 0]
 
     nans = get_list_of_nans_from_traj(traj)
 
-    output = os.path.abspath(output)
-    with open(output, "w", newline="") as csvfile:
+    with open(output_path, "w", newline="") as csvfile:
         csvfile.write("fish_id,start,end,duration\n")
         writer = csv.writer(csvfile)
         writer.writerows(nans)
-    print(f"File saved at {output}")
+    print(f"File saved at {output_path}")
 
 
 if __name__ == "__main__":

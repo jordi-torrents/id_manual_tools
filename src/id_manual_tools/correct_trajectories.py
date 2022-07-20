@@ -19,6 +19,7 @@ import shutil
 from time import sleep
 from id_manual_tools.utils import file_path, trajectory_path
 from argparse import ArgumentParser
+from scipy.spatial.distance import cdist
 
 # from PyQt5.QtWidgets import QToolBar
 console = Console()
@@ -60,6 +61,7 @@ class trajectory_corrector(matplotlib_gui):
         else:
             print(f"Reusing frames from {self.preloaded_frames_path}")
 
+        # TODO ask for an exclusion area with set_corners and set all points inside as nans
         self.cap = cv2.VideoCapture(video_path)
         print(f"Loaded video {self.video_path}")
 
@@ -382,6 +384,15 @@ class trajectory_corrector(matplotlib_gui):
 
             self.fit_interpolator_and_draw_frame()
 
+    def key_e(self):
+        """Togle actual frame from end to start and recenter"""
+        if self.frame == self.end:
+            self.frame = max(0, self.start - 1)
+        else:
+            self.frame = self.end
+        self.recenter()
+        self.draw_frame()
+
     def key_n(self):
         """Sets the actual position to nan (only on the boundaries and inside of the interpolation range)"""
         if self.frame == (self.start - 1) or self.frame == self.end:
@@ -408,12 +419,27 @@ class trajectory_corrector(matplotlib_gui):
 
             self.interpolation_range = np.arange(self.start, self.end)
             self.continuous_interpolation_range = np.arange(
-                self.start - 1, self.end, 0.2
+                self.start - 1, self.end + 0.1, 0.2
             )
+            self.fit_interpolator_and_draw_frame()
+
+        elif (self.end - self.frame) < self.Delta:
+
+            self.id_traj[
+                self.frame : min(self.total_frames, self.frame + self.Delta)
+            ] = np.nan
+
+            while np.isnan(self.id_traj[self.frame, 0]):
+                self.frame += 1
+                if self.frame == (self.total_frames - 1):
+                    break
+            self.end = self.frame
+
             self.fit_interpolator_and_draw_frame()
         elif self.frame in self.interpolation_range:
             self.id_traj[self.frame] = np.nan
             self.fit_interpolator_and_draw_frame()
+
         else:
             print(f"You are not on the boundaries, you are at frame {self.frame}")
             print(
@@ -520,7 +546,7 @@ class trajectory_corrector(matplotlib_gui):
         if recenter:
             self.recenter()
         if self.frame in self.interpolation_range:
-            self.found_blob(*self.interpolator(self.frame))
+            self.find_blob(*self.interpolator(self.frame))
 
     @lru_cache(maxsize=1024)
     def get_frame(self, frame):
@@ -549,42 +575,65 @@ class trajectory_corrector(matplotlib_gui):
         image = np.uint8(image)
         return image
 
-    def found_blob(self, x, y):
-        if x < self.xmin or x > self.xmax or y > self.ymax or y < self.ymin:
+    def find_blob(self, x, y):
+        if x <= self.xmin or x >= self.xmax or y >= self.ymax or y <= self.ymin:
             return
-        fish_im = (
-            255
-            - self.get_frame(self.frame)[
-                max(0, int(y - 0.7 * self.BL - self.ymin)) : int(
-                    y + 0.7 * self.BL - self.ymin
-                ),
-                max(0, int(x - 0.7 * self.BL - self.xmin)) : int(
-                    x + 0.7 * self.BL - self.xmin
-                ),
-            ]
-        )
 
-        _, fish_im_mask = cv2.threshold(
+        canvas_x_min = max(0, int(x - self.BL - self.xmin))
+        canvas_y_min = max(0, int(y - self.BL - self.ymin))
+
+        canvas_center = (x - canvas_x_min - self.xmin, y - canvas_y_min - self.ymin)
+
+        fish_im = self.get_frame(self.frame)[
+            canvas_y_min : int(y + self.BL - self.ymin),
+            canvas_x_min : int(x + self.BL - self.xmin),
+        ]
+
+        fish_im = cv2.GaussianBlur(fish_im, (0, 0), 2)
+
+        _, mask = cv2.threshold(
             fish_im,
             0,
             1,
             cv2.THRESH_BINARY + cv2.THRESH_OTSU,
         )
 
-        # TODO: If there are more than one blob in the mask, return error and stop key_G()
+        contours, hierarchy = cv2.findContours(
+            1 - mask, cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE
+        )
 
-        # cv2.imwrite("fish.png", fish_im * fish_im_mask)
+        blobs_positions = []
+        for c in contours:
+            M = cv2.moments(c)
+            blobs_positions.append((M["m10"] / M["m00"], M["m01"] / M["m00"]))
 
-        y_c, x_c = center_of_mass(fish_im * fish_im_mask)
+        closer_blob = cdist(
+            [
+                canvas_center,
+            ],
+            blobs_positions,
+        ).argmin()
+
+        x_c, y_c = blobs_positions[closer_blob]
+
+        # fig, ax = plt.subplots()
+        # ax.imshow(fish_im, cmap="gray")
+        # ax.plot(*blobs_positions.T, "r.")
+        # ax.plot(*canvas_center, "b.")
+        # ax.plot(x_c, y_c, "g.")
+        # fig.savefig("id_dev/fish", dpi=300)
 
         self.user_detection_history.append(
             (self.frame, tuple(self.id_traj[self.frame]))
         )
-        self.id_traj[self.frame] = x_c + x - 0.7 * self.BL, y_c + y - 0.7 * self.BL
+        self.id_traj[self.frame] = (
+            x_c + canvas_x_min + self.xmin,
+            y_c + canvas_y_min + self.ymin,
+        )
         self.fit_interpolator_and_draw_frame()
 
     def button_3(self, event):
-        self.found_blob(event.xdata, event.ydata)
+        self.find_blob(event.xdata, event.ydata)
 
     def button_1(self, event):
         self.user_detection_history.append(
