@@ -2,6 +2,8 @@ import matplotlib.pyplot as plt
 
 
 class matplotlib_gui:
+    """Thats a base class for building ultra simple matplotlib aplications with background images. Used in get_corners and correct_trajectories"""
+
     def draw_and_flush(self):
         self.fig.canvas.draw()
         self.fig.canvas.flush_events()

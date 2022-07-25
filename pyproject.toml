@@ -27,7 +27,7 @@ dependencies = [
 ]
 
 [project.urls]
-repository = "https://github.com/jordi-torrents/id_manual_tools"
+Repository = "https://github.com/jordi-torrents/id_manual_tools"
 
 
 [project.scripts]

@@ -1,25 +1,26 @@
+from multiprocessing import Process
+from csv import writer as csv_writer
+from argparse import ArgumentParser
+from time import sleep
+import shutil
+import os
+from functools import lru_cache
+
 import matplotlib.pyplot as plt
+from matplotlib.collections import LineCollection
+from matplotlib.cm import get_cmap
+from scipy.interpolate import interp1d
+from scipy.spatial.distance import cdist
 import numpy as np
 import cv2
 from rich import print
-from matplotlib.cm import get_cmap
-from functools import lru_cache
-from matplotlib.collections import LineCollection
-import os
-from scipy.interpolate import interp1d
-from multiprocessing import Process
-from id_manual_tools.get_nans import get_list_of_nans_from_traj
-from csv import writer as csv_writer
 from rich.console import Console
-from scipy.ndimage import center_of_mass
+from rich.table import Table
+
+from id_manual_tools.utils import file_path, trajectory_path
 from id_manual_tools.set_corners import arg_main as set_corners
 from id_manual_tools.matplotlib_gui import matplotlib_gui
-from rich.table import Table
-import shutil
-from time import sleep
-from id_manual_tools.utils import file_path, trajectory_path
-from argparse import ArgumentParser
-from scipy.spatial.distance import cdist
+from id_manual_tools.get_nans import get_list_of_nans_from_traj
 
 # from PyQt5.QtWidgets import QToolBar
 console = Console()

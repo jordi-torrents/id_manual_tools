@@ -1,16 +1,53 @@
 import numpy as np
 from statistics import mode
 import matplotlib.pyplot as plt
+import os
+from id_manual_tools import utils
+from argparse import ArgumentParser
+from rich import print
+
+# import idmatcherai
+# from idmatcherai.idmatcherai import IdMatcherAi
 
 
-def main():
-    video = "20220613_0146"
-    sessions_name = "0102030405060146", "0708091011120146"
+def arg_main(
+    output_path: str,
+    session_names,
+    sessions_dir: str,
+    algorithm_indx=str,
+):
 
-    sessions = ["/home/jordi/session_" + s + "/" for s in sessions_name]
+    permutation_algorithms = (
+        "mode",
+        "max_P1",
+        "max_freq",
+        "greedy",
+        "hungarian_P1",
+        "hungarian_freq",
+    )
+
+    try:
+        permutation_algorithm = permutation_algorithms[int(algorithm_indx)]
+    except ValueError:
+        if algorithm_indx in permutation_algorithms:
+            permutation_algorithm = algorithm_indx
+        else:
+            raise ValueError(f"Invalid permutation algorithm: {algorithm_indx}")
+    except IndexError:
+        raise ValueError(f"Invalid permutation algorithm: {algorithm_indx}")
+
+    print(f"Using [green]{permutation_algorithm}")
+
+    assert len(session_names) > 1
+
+    session_paths = [
+        os.path.abspath(f"{sessions_dir}/session_{s}") for s in session_names
+    ]
+    assert all(os.path.exists(session_path) for session_path in session_paths)
+    print("Sessions to concatenate:", session_paths)
 
     main_out = np.load(
-        sessions[0] + "trajectories_wo_gaps/trajectories_wo_gaps_corrected.npy",
+        utils.trajectory_path(session_paths[0], read_only=True),
         allow_pickle=True,
     ).item()
 
@@ -19,52 +56,49 @@ def main():
     main_out["body_length"] = [main_out["body_length"]]
     main_out["stats"] = [main_out["stats"]]
 
-    N_concatenations = len(sessions) - 1
-    n_cols = int(np.sqrt(N_concatenations)) + 1
-    n_rows = int(N_concatenations / n_cols) + 1
+    N_concatenations = len(session_names) - 1
+    n_cols = int(np.sqrt(N_concatenations) + 0.5)
+    n_rows = N_concatenations // n_cols + (N_concatenations % n_cols > 0)
     fig, ax = plt.subplots(n_rows, n_cols, figsize=(n_cols * 3, n_rows * 3))
     ax = ax.flatten()
 
     fpss = [main_out["frames_per_second"]]
+    permutation = np.empty(N, int)
 
-    for ax_i, session in enumerate(sessions[1:]):
-        matcher = np.load(
-            session + "matching_results/" + sessions_name[0] + "-.npy",
-            allow_pickle=True,
-        ).item()["matching_results_B_A"]["transfer_dicts"]
+    for i in range(1, len(session_names)):
 
-        data = np.load(
-            session + "trajectories_wo_gaps/trajectories_wo_gaps_corrected.npy",
-            allow_pickle=True,
-        ).item()
+        id_matcher_file_path = (
+            session_paths[i] + "/matching_results/" + session_names[0] + "-.npy"
+        )
 
-        permutation = np.empty(N, int)
+        if not os.path.exists(id_matcher_file_path):
+            raise ValueError(f"session {session_names[i]} has not been idmatched")
+            # print("Launching idmatcher for session", session_paths[i])
+            # IdMatcherAi(session_paths[0], session_paths[i]).match_identities()
+            # assert os.path.exists(id_matcher_file_path)
 
-        # for i in range(N):
-        #     id = i + 1
-        #     permutation[i] = (
-        #         mode(
-        #             [
-        #                 matcher["max_P1"]["assignments"][id],
-        #                 matcher["max_freq"]["assignments"][id],
-        #                 matcher["greedy"]["assignments"][id],
-        #                 matcher["hungarian_P1"]["assignments"][id],
-        #                 matcher["hungarian_freq"]["assignments"][id],
-        #             ]
-        #         )
-        #         - 1
-        #     )
+        matcher = np.load(id_matcher_file_path, allow_pickle=True,).item()[
+            "matching_results_B_A"
+        ]["transfer_dicts"]
 
-        for i in range(N):
-            id = i + 1
-            permutation[i] = (
-                # matcher["max_P1"]["assignments"][id]
-                # matcher["max_freq"]["assignments"][id]
-                # matcher["greedy"]["assignments"][id]
-                # matcher["hungarian_P1"]["assignments"][id]
-                matcher["hungarian_freq"]["assignments"][id]
-                - 1
-            )
+        traj_path = utils.trajectory_path(session_paths[i], read_only=True)
+        data = np.load(traj_path, allow_pickle=True).item()
+
+        for n in range(N):
+            id = n + 1
+            if permutation_algorithm == "mode":
+                permutation[n] = mode(
+                    (
+                        matcher["max_P1"]["assignments"][id],
+                        matcher["max_freq"]["assignments"][id],
+                        matcher["greedy"]["assignments"][id],
+                        matcher["hungarian_P1"]["assignments"][id],
+                        matcher["hungarian_freq"]["assignments"][id],
+                    )
+                )
+            else:
+                permutation[n] = matcher[permutation_algorithm]["assignments"][id]
+        permutation = permutation - 1
 
         l = len(main_out["trajectories"])
 
@@ -87,9 +121,9 @@ def main():
 
         assert main_out["version"] == data["version"]
         fpss.append(data["frames_per_second"])
-        assert all(
-            [i == j for i, j in zip(main_out["setup_points"], data["setup_points"])]
-        )
+        # assert all(
+        #     [i == j for i, j in zip(main_out["setup_points"], data["setup_points"])]
+        # )
         assert all(
             [
                 i == j
@@ -99,8 +133,10 @@ def main():
             ]
         )
 
-        ax[ax_i].set(title="adding " + session, aspect=1, xticks=(), yticks=())
-        ax[ax_i].plot(
+        ax[i - 1].set(
+            title="adding " + session_paths[i], aspect=1, xticks=(), yticks=()
+        )
+        ax[i - 1].plot(
             main_out["trajectories"][l - 4 : l + 5, :, 0],
             main_out["trajectories"][l - 4 : l + 5, :, 1],
             ".-",
@@ -115,9 +151,44 @@ def main():
 
     main_out["body_length"] = np.mean(main_out["body_length"])
     plt.tight_layout(pad=0.3)
+    plt.show()
+    fig.savefig(output_path + ".png", dpi=300)
+    np.save(output_path, main_out)
+    print("Concatenated data saved at", os.path.abspath(output_path + ".npy"))
 
-    fig.savefig(video + ".png", dpi=300)
-    np.save(video, main_out)
+
+def main():
+    parser = ArgumentParser()
+    parser.add_argument(
+        "-sessions",
+        help="sessions names to concatenate (ordered)",
+        type=str,
+        action="store",
+        required=True,
+        nargs="*",
+    )
+    parser.add_argument(
+        "-dir",
+        help="dir where to find sessions folders",
+        type=str,
+        default="./",
+    )
+    parser.add_argument(
+        "-o",
+        help="output file for concatenated trajectories",
+        type=str,
+        default="concatenated_trajectories",
+    )
+
+    parser.add_argument(
+        "-algorithm",
+        help='permutation algorithmn. One of {0: "mode", 1: "max_P1", 2: "max_freq", 3: "greedy", 4: "hungarian_P1", 5: "hungarian_freq"}',
+        type=str,
+        default="0",
+    )
+
+    args = parser.parse_args()
+    arg_main(args.o, args.sessions, args.dir, args.algorithm)
 
 
 if __name__ == "__main__":
