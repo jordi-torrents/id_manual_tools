@@ -5,9 +5,7 @@ import os
 from id_manual_tools import utils
 from argparse import ArgumentParser
 from rich import print
-
-# import idmatcherai
-# from idmatcherai.idmatcherai import IdMatcherAi
+from idmatcherai.idmatcherai import IdMatcherAi
 
 
 def arg_main(
@@ -72,10 +70,10 @@ def arg_main(
         )
 
         if not os.path.exists(id_matcher_file_path):
-            raise ValueError(f"session {session_names[i]} has not been idmatched")
-            # print("Launching idmatcher for session", session_paths[i])
-            # IdMatcherAi(session_paths[0], session_paths[i]).match_identities()
-            # assert os.path.exists(id_matcher_file_path)
+            # raise ValueError(f"session {session_names[i]} has not been idmatched")
+            print(f"Launching idmatcher for session {session_paths[i]}")
+            IdMatcherAi(session_paths[0], session_paths[i]).match_identities()
+            assert os.path.exists(id_matcher_file_path), id_matcher_file_path
 
         matcher = np.load(id_matcher_file_path, allow_pickle=True,).item()[
             "matching_results_B_A"
