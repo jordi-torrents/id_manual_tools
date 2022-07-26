@@ -1,12 +1,10 @@
-# id manual tools
+# id manual tools <!-- omit in toc -->
 <p align="center">
   <img src="https://github.com/jordi-torrents/id_manual_tools/raw/master/images/fishes.gif" alt="id_manual_tools"/>
 </p>
 
 ---
-
-- [id manual tools](#id-manual-tools)
-  - [- Contact](#--contact)
+# Table of Contents <!-- omit in toc -->
 - [Install](#install)
 - [Steps to track a video with idTracker.ai](#steps-to-track-a-video-with-idtrackerai)
   - [1 Download the episodes from Google Drive](#1-download-the-episodes-from-google-drive)
