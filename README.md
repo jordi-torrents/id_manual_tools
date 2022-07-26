@@ -1,4 +1,6 @@
 
+![Alt Text](https://github.com/jordi-torrents/id_manual_tools/images/fishes.gif)
+
 # Table of content
 - [Table of content](#table-of-content)
 - [Install](#install)
