@@ -1,4 +1,28 @@
 
+# Table of content
+- [Table of content](#table-of-content)
+- [Install](#install)
+- [Steps to track a video with idTracker.ai](#steps-to-track-a-video-with-idtrackerai)
+  - [1 Download the episodes from Google Drive](#1-download-the-episodes-from-google-drive)
+  - [2 Prepare the videos](#2-prepare-the-videos)
+  - [3 Input parameters](#3-input-parameters)
+    - [3.1 local_settings.py](#31-local_settingspy)
+    - [3.2 segmentation parameters](#32-segmentation-parameters)
+  - [4 Running idTracker.ai from terminal](#4-running-idtrackerai-from-terminal)
+  - [5 id_manual_tools](#5-id_manual_tools)
+    - [5.1 `id_manual_tools_get_nans`](#51-id_manual_tools_get_nans)
+    - [5.2 `id_manual_tools_set_corners`](#52-id_manual_tools_set_corners)
+    - [5.3 `id_manual_tools_correct_traj`](#53-id_manual_tools_correct_traj)
+    - [5.4 `id_manual_tools_concatenate_traj`](#54-id_manual_tools_concatenate_traj)
+    - [5.5 `id_manual_tools_plot_traj`](#55-id_manual_tools_plot_traj)
+- [Contact](#contact)
+
+# Install
+
+
+
+In the [idTracker.ai](https://idtrackerai.readthedocs.io/en/latest/) environment: `pip install id-manual-tools`
+
 # Steps to track a video with idTracker.ai
 
 ## 1 Download the episodes from Google Drive
@@ -42,7 +66,7 @@ idTracker.ai has 3 levels of parameters with increasing priority.
 
 ### 3.1 local_settings.py
 
-Find complete info [here](https://idtrackerai.readthedocs.io/en/latest/advanced_parameters.html).
+Find complete info [the official idtracker website](https://idtrackerai.readthedocs.io/en/latest/advanced_parameters.html).
 
 You want to define the next parameters here:
 - `NUMBER_OF_JOBS_FOR_BACKGROUND_SUBTRACTION = -2`
@@ -62,7 +86,7 @@ As a side note, a minimum area of ~400 px is perfect for our trackings.
 
 I recommend using the GUI to set the segmentation parameters and save them in a `.json` file. Then you will use this file in to run idtrackerai from terminal
 
-## Running idTracker.ai from terminal
+## 4 Running idTracker.ai from terminal
 
 The command to run idtrackerai in the terminal is
 
@@ -92,13 +116,44 @@ And run it like `nohup ./script.sh &`
 
 Keep track of the output file to check the status of the program
 
-## 4 id_manual_tools
+## 5 id_manual_tools
 
-When tracked, you could use the `id_manual_tools` project
+When tracked, you may use the `id_manual_tools` project
 
-### 4.1 correct_trajectories
-The first step is correct the trajectories
+For now, id_manual_tools has 5 tools:
+
+- 5.1 `id_manual_tools_get_nans`
+- 5.2 `id_manual_tools_set_corners`
+- 5.3 `id_manual_tools_correct_traj`
+- 5.4 `id_manual_tools_concatenate_traj`
+- 5.5 `id_manual_tools_plot_traj`
+
+All of them are wrapped with Python's ArgParser and can be runned with `-h` flag to print some basic information about input/output.
+
+### 5.1 `id_manual_tools_get_nans`
+
+The first tool checks for nans in the trajectory file. The raw trajectories from idTracker.ai use to have some NaNs (less than 1% of the total data). It reads the file and print a .csv list of NaNs
+
+### 5.2 `id_manual_tools_set_corners`
+
+This tool opens the video to set the `setting_points`. A list of coordinates that we use to indicate the position of the tanck corners.
+
+### 5.3 `id_manual_tools_correct_traj`
+
+That's the main tool here. The trajectory corrector will use `id_manual_tools_get_nans` to look fort NaNs and will display a full matplotlib GUI to correct them using cubic interpolations. Aditionally, the user will be asked to write the corners of the tank using `id_manual_tools_set_corners` to crop the video and speed up the GUI.
+
+This tool can also be used to correct suspicious high velicities (jumps) using a gaussian threshold.
 
 `id_manual_tools_correct_trajectories -s session_0146/ -video 0146.MP4 -fps 50 -n 10 -jumps_check_sigma 6`
 
-and concatenate
+### 5.4 `id_manual_tools_concatenate_traj`
+
+If your video has been tracked in chunks. You can concatenate them with this tool. It is a wrapper of [idmatcher](https://gitlab.com/polavieja_lab/idmatcherai)
+
+### 5.5 `id_manual_tools_plot_traj`
+
+This is used to make composed videos (the original video with the trajectories overlapped)
+
+# Contact
+
+GitHub actions are recommended (issues, PR,...). Also, author's email is [jordi.torrentsm@gmail.com](jordi.torrentsm@gmail.com)
