@@ -1,6 +1,6 @@
 # id manual tools <!-- omit in toc -->
 <p align="center">
-  <img src="https://github.com/jordi-torrents/id_manual_tools/raw/master/images/fishes.gif" alt="id_manual_tools"/>
+  <img src="images/fishes.gif" alt="id_manual_tools"/>
 </p>
 
 ---
