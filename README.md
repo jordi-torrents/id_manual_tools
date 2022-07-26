@@ -4,6 +4,9 @@
 </p>
 
 ---
+![PyPI - Python Version](https://img.shields.io/pypi/pyversions/id-manual-tools)
+![PyPI](https://img.shields.io/pypi/v/id-manual-tools)
+
 # Table of Contents <!-- omit in toc -->
 - [Install](#install)
 - [Steps to track a video with idTracker.ai](#steps-to-track-a-video-with-idtrackerai)
