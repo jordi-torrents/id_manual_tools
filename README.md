@@ -1,8 +1,12 @@
+# id manual tools
+<p align="center">
+  <img src="https://github.com/jordi-torrents/id_manual_tools/raw/master/images/fishes.gif" alt="id_manual_tools"/>
+</p>
 
-![Alt Text](https://github.com/jordi-torrents/id_manual_tools/images/fishes.gif)
+---
 
-# Table of content
-- [Table of content](#table-of-content)
+- [id manual tools](#id-manual-tools)
+  - [- Contact](#--contact)
 - [Install](#install)
 - [Steps to track a video with idTracker.ai](#steps-to-track-a-video-with-idtrackerai)
   - [1 Download the episodes from Google Drive](#1-download-the-episodes-from-google-drive)
@@ -18,6 +22,7 @@
     - [5.4 `id_manual_tools_concatenate_traj`](#54-id_manual_tools_concatenate_traj)
     - [5.5 `id_manual_tools_plot_traj`](#55-id_manual_tools_plot_traj)
 - [Contact](#contact)
+---
 
 # Install
 
