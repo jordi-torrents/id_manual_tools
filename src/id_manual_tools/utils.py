@@ -33,14 +33,29 @@ def trajectory_path(session_path, reset=False, read_only=False):
 
 
 def get_duplicated(path, read_only, reset=True):
-    if path.endswith("_corrected.npy") or read_only:
-        return path
+    if path.endswith("_corrected.npy"):
+        original = path[:-14] + ".npy"
+        copied = path
+    else:
+        original = path
+        copied = path[:-4] + "_corrected.npy"
 
-    duplicated_path = path[:-4] + "_corrected.npy"
-    if reset or not os.path.exists(duplicated_path):
-        print(f"Duplicating {path} to {duplicated_path} ")
-        copyfile(path, duplicated_path)
-    return duplicated_path
+    copied_exists = os.path.exists(copied)
+
+    if read_only:
+        if copied_exists:
+            if reset:
+                print(f"Duplicating {original} to {copied} ")
+                copyfile(original, copied)
+            return copied
+        else:
+            return original
+
+    else:
+        if not copied_exists or reset:
+            print(f"Duplicating {original} to {copied} ")
+            copyfile(original, copied)
+        return copied
 
 
 def dir_path(string):
