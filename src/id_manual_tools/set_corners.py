@@ -230,7 +230,7 @@ def arg_main(video_path, data):
 
 
 def main():
-    parser = ArgumentParser()
+    parser = ArgumentParser(description="Add setup_points to trajectory files.")
     parser.add_argument(
         "s",
         metavar="session",

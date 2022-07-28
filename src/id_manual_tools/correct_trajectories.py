@@ -696,7 +696,6 @@ def main():
     parser.add_argument(
         "-jumps_check_sigma",
         type=float,
-        default=None,
         help="Check for impossible long jumps on the trajectories",
     )
 

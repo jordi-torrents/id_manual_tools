@@ -66,7 +66,7 @@ def main():
         help="idTracker.ai successful session directory or trajectory file",
     )
     parser.add_argument(
-        "-o", type=str, default=None, help="output file, default input[:4]+'_nans.csv'"
+        "-o", type=str, help="output file, default input[:4]+'_nans.csv'"
     )
     args = parser.parse_args()
 

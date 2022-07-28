@@ -26,7 +26,9 @@ cmap = get_cmap("gist_rainbow")
 
 
 # INPUT ARGUMENTS (ARGPARSER)
-parser = ArgumentParser()
+parser = ArgumentParser(
+    description="Renders a composed video with the trajectories overlapping the original video. It uses matplotlib with multiprocessing."
+)
 
 parser.add_argument(
     "s",
@@ -45,14 +47,12 @@ parser.add_argument(
     metavar="output",
     type=str,
     help="Output file name, default is (video path)_tracked.mp4",
-    default=None,
 )
 parser.add_argument(
     "-t",
     metavar="time",
     type=float,
     help="Duration of the tracked video (in seconds), default is entire video",
-    default=None,
 )
 parser.add_argument(
     "-z",
