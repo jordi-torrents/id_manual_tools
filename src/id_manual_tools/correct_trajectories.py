@@ -678,19 +678,19 @@ class trajectory_corrector(matplotlib_gui):
 
 
 def main():
-    parser = ArgumentParser()
-    parser.add_argument(
-        "-s",
-        metavar="session",
-        type=str,
-        help="idTracker.ai succesful session directory or trajectory file",
-        required=True,
+    parser = ArgumentParser(
+        description="Correct a trajectory file from idTracker.ai using cubic interpolators in a matplotlib GUI"
     )
     parser.add_argument(
-        "-video",
+        "s",
+        metavar="session",
+        type=str,
+        help="idTracker.ai successful session directory or trajectory file",
+    )
+    parser.add_argument(
+        "video",
         type=file_path,
         help="Video file (only one file)",
-        required=True,
     )
 
     parser.add_argument(
@@ -723,7 +723,7 @@ def main():
     parser.add_argument(
         "-n",
         type=int,
-        default=10,
+        default=4,
         help="number of threads for parallel processing. Default is 4",
     )
 

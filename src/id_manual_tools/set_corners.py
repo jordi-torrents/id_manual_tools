@@ -232,17 +232,15 @@ def arg_main(video_path, data):
 def main():
     parser = ArgumentParser()
     parser.add_argument(
-        "-s",
+        "s",
         metavar="session",
         type=trajectory_path,
-        help="idTracker.ai succesful session directory or trajectory file",
-        required=True,
+        help="idTracker.ai successful session directory or trajectory file",
     )
     parser.add_argument(
-        "-video",
+        "video",
         type=str,
         help="Video file (only one file)",
-        required=True,
     )
     args = parser.parse_args()
     arg_main(args.video, args.s)

@@ -168,31 +168,34 @@ def arg_main(
 
 
 def main():
-    parser = ArgumentParser()
+    parser = ArgumentParser(
+        description="Concatenate various trajectory files using idmatcher"
+    )
+
     parser.add_argument(
-        "-sessions",
-        help="sessions names to concatenate (ordered)",
+        "s",
+        metavar="session",
+        help="idTracker.ai successful sessions directories or trajectory files to concatenate (ordered)",
         type=str,
         action="store",
-        required=True,
         nargs="*",
     )
     parser.add_argument(
         "-dir",
-        help="dir where to find sessions folders",
+        help="dir where to find sessions folders, default is current dir",
         type=str,
         default="./",
     )
     parser.add_argument(
         "-o",
-        help="output file for concatenated trajectories",
+        help="output file for concatenated trajectories, default is './concatenated_trajectories'",
         type=str,
         default="concatenated_trajectories",
     )
 
     parser.add_argument(
         "-algorithm",
-        help='permutation algorithmn. One of {0: "mode", 1: "max_P1", 2: "max_freq", 3: "greedy", 4: "hungarian_P1", 5: "hungarian_freq"}',
+        help='permutation algorithm. One of {0: "mode", 1: "max_P1", 2: "max_freq", 3: "greedy", 4: "hungarian_P1", 5: "hungarian_freq"}',
         type=str,
         default="0",
     )

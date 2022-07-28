@@ -2,6 +2,7 @@ import numpy as np
 import csv
 from id_manual_tools.utils import trajectory_path
 import os
+from argparse import ArgumentParser
 
 
 def find_nans_1D(data, id=None):
@@ -56,22 +57,20 @@ def get_list_of_nans_from_traj(traj, sort_by="length"):
 
 
 def main():
-    import argparse
-
-    parser = argparse.ArgumentParser(
+    parser = ArgumentParser(
         description="Nans observation in idtrackeri.ai trajectories."
     )
     parser.add_argument(
-        "-i",
-        type=str,
-        help="idTracker.ai succesful session directory or trajectory file",
+        "s",
+        metavar="session",
+        help="idTracker.ai successful session directory or trajectory file",
     )
     parser.add_argument(
         "-o", type=str, default=None, help="output file, default input[:4]+'_nans.csv'"
     )
     args = parser.parse_args()
 
-    input_path = trajectory_path(args.i, read_only=True)
+    input_path = trajectory_path(args.s, read_only=True)
 
     output_path = os.path.abspath(args.o) if args.o else input_path[:-4] + "_nans.csv"
 

@@ -14,7 +14,7 @@ from os.path import splitext
 from shutil import rmtree
 from warnings import catch_warnings, simplefilter
 from scipy.ndimage import gaussian_filter1d
-from id_manual_tools.utils import trajectory_path
+from id_manual_tools.utils import trajectory_path, file_path
 
 
 def interpolate_nans(arr):
@@ -27,20 +27,24 @@ cmap = get_cmap("gist_rainbow")
 
 # INPUT ARGUMENTS (ARGPARSER)
 parser = ArgumentParser()
+
 parser.add_argument(
-    "-i", metavar="video", type=str, help="Input raw video file", required=True
-)
-parser.add_argument(
-    "-traj",
+    "s",
+    metavar="session",
     type=str,
-    help="Path to trajectories to load (.npy file)",
-    required=True,
+    help="idTracker.ai successful session directory or trajectory file",
 )
+parser.add_argument(
+    "video",
+    type=file_path,
+    help="Video file (only one file)",
+)
+
 parser.add_argument(
     "-o",
     metavar="output",
     type=str,
-    help="Output file name, default is (input)_tracked.mp4",
+    help="Output file name, default is (video path)_tracked.mp4",
     default=None,
 )
 parser.add_argument(
@@ -76,11 +80,11 @@ tmp_folder = "tmp_plot_trajectories/"
 
 
 # LOADING DATA (POSITIONS AND VIDEO)
-data = np.load(trajectory_path(args.traj, read_only=True), allow_pickle=True).item()
+data = np.load(trajectory_path(args.s, read_only=True), allow_pickle=True).item()
 pos = data["trajectories"]
 n_frames, N, _ = pos.shape
 
-cap = cv2.VideoCapture(args.i)
+cap = cv2.VideoCapture(args.video)
 fps = cap.get(cv2.CAP_PROP_FPS)
 nx = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))
 ny = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
@@ -175,7 +179,7 @@ def thread_run(thread):
     start, finish = frame_limits[thread]
     n_frames = finish - start
 
-    cap = cv2.VideoCapture(args.i)
+    cap = cv2.VideoCapture(args.video)
     cap.set(cv2.CAP_PROP_POS_FRAMES, start)
 
     def animate(video_frame_in_this_thread):
@@ -240,7 +244,7 @@ def main():
             "files.txt",
             "-c",
             "copy",
-            args.o if args.o else splitext(args.i)[0] + "_tracked.mp4",
+            args.o if args.o else splitext(args.video)[0] + "_tracked.mp4",
         ]
     )
 
