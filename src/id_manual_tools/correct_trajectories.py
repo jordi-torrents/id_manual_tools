@@ -206,7 +206,9 @@ class trajectory_corrector(matplotlib_gui):
             self.x_center, self.y_center = np.nanmean(self.traj[self.frame], axis=0)
         self.set_ax_lims(do_not_draw=True)
         self.interpolation_range = np.arange(self.start, self.end)
-        self.continuous_interpolation_range = np.arange(self.start - 1, self.end, 0.2)
+        self.continuous_interpolation_range = np.arange(
+            self.start - 1, self.end + 0.1, 0.2
+        )
 
         self.user_detection_history = []
 
