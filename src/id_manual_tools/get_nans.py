@@ -1,6 +1,7 @@
 import numpy as np
 import csv
 from id_manual_tools.utils import trajectory_path
+import os
 
 
 def find_nans_1D(data, id=None):
@@ -72,7 +73,7 @@ def main():
 
     input_path = trajectory_path(args.i, read_only=True)
 
-    output_path = args.o if args.o else input_path[:-4] + "_nans.csv"
+    output_path = os.path.abspath(args.o) if args.o else input_path[:-4] + "_nans.csv"
 
     traj = np.load(input_path, allow_pickle=True).item()["trajectories"][..., 0]
 

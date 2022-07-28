@@ -4,7 +4,10 @@ from shutil import copyfile
 
 
 def trajectory_path(session_path, reset=False, read_only=False):
-    session_path = os.path.abspath(session_path)
+    if os.path.basename(session_path).startswith("session_"):
+        session_path = os.path.abspath(session_path)
+    else:
+        session_path = os.path.abspath("session_" + session_path)
 
     if not os.path.exists(session_path):
         raise TypeError(f"The path doesn't exists {session_path}")

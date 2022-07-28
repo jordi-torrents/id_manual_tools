@@ -1,5 +1,5 @@
 import numpy as np
-from statistics import mode
+from statistics import mode, StatisticsError
 import matplotlib.pyplot as plt
 import os
 from id_manual_tools import utils
@@ -58,7 +58,11 @@ def arg_main(
     n_cols = int(np.sqrt(N_concatenations) + 0.5)
     n_rows = N_concatenations // n_cols + (N_concatenations % n_cols > 0)
     fig, ax = plt.subplots(n_rows, n_cols, figsize=(n_cols * 3, n_rows * 3))
-    ax = ax.flatten()
+
+    if (n_cols * n_rows) == 1:
+        ax = [ax]
+    else:
+        ax = ax.flatten()
 
     fpss = [main_out["frames_per_second"]]
     permutation = np.empty(N, int)
@@ -132,7 +136,10 @@ def arg_main(
         )
 
         ax[i - 1].set(
-            title="adding " + session_paths[i], aspect=1, xticks=(), yticks=()
+            title=(session_names[i] + " + \n" + session_names[i - 1]),
+            aspect=1,
+            xticks=(),
+            yticks=(),
         )
         ax[i - 1].plot(
             main_out["trajectories"][l - 4 : l + 5, :, 0],
@@ -143,9 +150,14 @@ def arg_main(
         )
 
     if len(set(fpss)) > 1:
-        fps = mode(fpss)
+        print(f"Differences in FPS: {fpss}.")
+        try:
+            fps = mode(fpss)
+            print(f"We use the mode ({fps})")
+        except StatisticsError:
+            fps = int(input("There's no defined mode, enter the desired value: "))
+        fps = 50
         main_out["frames_per_second"] = fps
-        print(f"Differences in FPS: {fpss}. We use the mode ({fps})")
 
     main_out["body_length"] = np.mean(main_out["body_length"])
     plt.tight_layout(pad=0.3)

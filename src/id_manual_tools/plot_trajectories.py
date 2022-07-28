@@ -14,6 +14,7 @@ from os.path import splitext
 from shutil import rmtree
 from warnings import catch_warnings, simplefilter
 from scipy.ndimage import gaussian_filter1d
+from id_manual_tools.utils import trajectory_path
 
 
 def interpolate_nans(arr):
@@ -71,11 +72,11 @@ parser.add_argument("-n", type=int, default=4, help="number of threads. Default 
 
 args = parser.parse_args()
 line_lenght = 20
-tmp_folder = "/tmp/plot_trajectories_tmp/"
+tmp_folder = "tmp_plot_trajectories/"
 
 
 # LOADING DATA (POSITIONS AND VIDEO)
-data = np.load(args.traj, allow_pickle=True).item()
+data = np.load(trajectory_path(args.traj, read_only=True), allow_pickle=True).item()
 pos = data["trajectories"]
 n_frames, N, _ = pos.shape
 

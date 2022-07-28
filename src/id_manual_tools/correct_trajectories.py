@@ -562,7 +562,7 @@ class trajectory_corrector(matplotlib_gui):
         assert ret
 
         image = self.process_image(image, *self.limits)
-        np.save(path, image)
+        # np.save(path, image)
         return image
         # return np.ma.masked_invalid(
         #     self.process_image(image, *self.limits)
