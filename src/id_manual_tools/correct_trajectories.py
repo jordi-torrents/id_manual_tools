@@ -103,22 +103,14 @@ class trajectory_corrector(matplotlib_gui):
                 self.data["frames_per_second"] = fps
                 print(f"Frames per second updated to {fps}")
 
-        self.all_traj = self.data["trajectories"]
-        self.total_frames, self.N = self.all_traj.shape[:2]
+        self.total_frames, self.N = self.data["trajectories"].shape[:2]
         assert self.total_frames == self.cap.get(cv2.CAP_PROP_FRAME_COUNT)
 
         self.N -= 1
-        self.BL = self.data["body_length"]
 
-        self.not_preloaded_frame = np.empty(self.total_frames, bool)
-        for frame in range(self.total_frames):
-            self.not_preloaded_frame[frame] = not os.path.exists(
-                os.path.join(self.preloaded_frames_path, f"{frame}.npz")
-            )
-
-        copy_of_traj = np.zeros_like(self.all_traj)
+        copy_of_traj = np.zeros_like(self.data["trajectories"])
         if jumps_check_sigma is not None:
-            vel = np.linalg.norm(np.diff(self.all_traj, axis=0), axis=2)
+            vel = np.linalg.norm(np.diff(self.data["trajectories"], axis=0), axis=2)
             impossible_jumps = vel > (
                 np.nanmean(vel) + jumps_check_sigma * np.nanstd(vel)
             )
@@ -130,18 +122,22 @@ class trajectory_corrector(matplotlib_gui):
         else:
             self.list_of_jumps = []
 
-        self.list_of_nans = get_list_of_nans_from_traj(self.all_traj, sort_by="start")
+        self.list_of_nans = get_list_of_nans_from_traj(
+            self.data["trajectories"], sort_by="start"
+        )
 
         self.write_lists_of_nans_and_jumps()
 
-        self.limits = (self.xmin, self.xmax, self.ymin, self.ymax)
-        print(f"xmin, xmax, ymin, ymax = {self.limits}")
-        self.Lx = 0.5 * (self.xmax - self.xmin)
-        self.Ly = 0.5 * (self.ymax - self.ymin)
+        print(f"xmin => xmax = {self.xmin} => {self.xmax}")
+        print(f"ymin => ymax = {self.ymin} => {self.ymax}")
+        # self.Lx = 0.5 * (self.xmax - self.xmin)
+        # self.Ly = 0.5 * (self.ymax - self.ymin)
         self.pad = 7
         self.pad_extra = 150
         self.actual_plotted_frame = -1
         self.G_pressed = False
+
+        self.key_w()  # Save corners and other extra thing before start the app
 
         if self.list_of_nans or self.list_of_jumps:
             list_of_frames_to_preload = set()
@@ -164,13 +160,13 @@ class trajectory_corrector(matplotlib_gui):
                 )
             ]
             print(f"{len(list_of_frames_to_preload)} frames to preload")
-            list_of_frames_to_preload.sort()
             if list_of_frames_to_preload:
-                self.preload_frames_list(list_of_frames_to_preload, n_cores=n_cores)
+                self.preload_frames_list(
+                    list_of_frames_to_preload.sort(), n_cores=n_cores
+                )
 
             self.create_figure()
 
-            self.Delta = 1
             if self.list_of_nans:
                 self.next_episode(self.list_of_nans.pop(-1))
             elif self.list_of_jumps:
@@ -189,8 +185,8 @@ class trajectory_corrector(matplotlib_gui):
         console.rule(
             f"[bold red]Episode for fish {self.id} from {self.start} to {self.end}, {self.end-self.start} nans"
         )
-        self.id_traj = self.all_traj[:, self.id, :]
-        self.traj = np.delete(self.all_traj, self.id, axis=1)
+        self.id_traj = self.data["trajectories"][:, self.id, :]
+        self.traj = np.delete(self.data["trajectories"], self.id, axis=1)
 
         if self.N:
             temp = self.traj.reshape(-1, self.N, 1, 2)
@@ -204,7 +200,7 @@ class trajectory_corrector(matplotlib_gui):
             self.x_center, self.y_center = self.id_traj[self.frame]
         else:
             self.x_center, self.y_center = np.nanmean(self.traj[self.frame], axis=0)
-        self.set_ax_lims(do_not_draw=True)
+        self.set_ax_lims(draw=False)
         self.interpolation_range = np.arange(self.start, self.end)
         self.continuous_interpolation_range = np.arange(
             self.start - 1, self.end + 0.1, 0.2
@@ -226,14 +222,7 @@ class trajectory_corrector(matplotlib_gui):
             f"[red]Starting {len(range(0, n_frames, chunks))} processes of {chunks} frames each"
         )
 
-        # self.process_frame_list_and_save(
-        #     self.video_path,
-        #     list_of_frames,
-        #     self.process_image,
-        #     self.limits,
-        # )
         for s in range(0, n_frames, chunks):
-            # self.not_preloaded_frame[start:end] = False
             Process(
                 target=trajectory_corrector.process_frame_list_and_save,
                 args=(
@@ -241,7 +230,7 @@ class trajectory_corrector(matplotlib_gui):
                     self.video_path,
                     list_of_frames[s : s + chunks],
                     trajectory_corrector.process_image,
-                    self.limits,
+                    (self.xmin, self.xmax, self.ymin, self.ymax),
                 ),
             ).start()
 
@@ -261,11 +250,6 @@ class trajectory_corrector(matplotlib_gui):
 
         if self.frame != self.actual_plotted_frame:
             self.im.set_data(self.get_frame(self.frame))
-
-            # self.im._A = self.get_frame(self.frame)
-            # self.im._imcache = None
-            # self.im._rgbacache = None
-            # self.im.stale = True
 
             self.text.set_text(f"Frame {self.frame}")
             self.actual_plotted_frame = self.frame
@@ -342,27 +326,27 @@ class trajectory_corrector(matplotlib_gui):
         self.draw_frame()
 
     def key_a(self, draw=True):
-        """Go back Delta timesteps"""
+        """Go back Delta time steps"""
         self.frame = max(0, self.frame - self.Delta)
         if draw:
             self.draw_frame()
 
     def key_d(self, draw=True):
-        """Advance Delta timesteps"""
+        """Advance Delta time steps"""
         self.frame = min(self.total_frames - 1, self.frame + self.Delta)
         if draw:
             self.draw_frame()
 
     def key_left(self):
-        """Go back Delta timesteps"""
+        """Go back Delta time steps"""
         self.key_a()
 
     def key_right(self):
-        """Advance Delta timesteps"""
+        """Advance Delta time steps"""
         self.key_d()
 
     def key_P(self):
-        """Toggle 1500 extra timesteps in the interpolator data"""
+        """Toggle 1500 extra time steps in the interpolator data"""
         if self.pad_extra == 1500:
             self.pad_extra = 0
         else:
@@ -371,7 +355,7 @@ class trajectory_corrector(matplotlib_gui):
         self.fit_interpolator_and_draw_frame()
 
     def key_p(self):
-        """Toggle 150 extra timesteps in the interpolator data"""
+        """Toggle 150 extra time steps in the interpolator data"""
         if self.pad_extra == 150:
             self.pad_extra = 0
         else:
@@ -388,12 +372,12 @@ class trajectory_corrector(matplotlib_gui):
             self.fit_interpolator_and_draw_frame()
 
     def key_e(self):
-        """Togle actual frame from end to start and recenter"""
+        """Toggle actual frame from end to start and recenter"""
         if self.frame == self.end:
             self.frame = max(0, self.start - 1)
         else:
             self.frame = self.end
-        self.recenter()
+        self.key_c(draw=False)
         self.draw_frame()
 
     def key_n(self):
@@ -452,13 +436,15 @@ class trajectory_corrector(matplotlib_gui):
     def key_enter(self):
         """Accept the interpolation, write it to the trajectory array and move on (this doesn't write on disk)"""
         print(
-            f"Writting interploation into the array from {self.start} to {self.end} for fish {self.id}"
+            f"Writing interpolation into the array from {self.start} to {self.end} for fish {self.id}"
         )
         self.id_traj[self.interpolation_range] = self.interpolator(
             self.interpolation_range
         ).T
 
-        self.list_of_nans = get_list_of_nans_from_traj(self.all_traj, sort_by="start")
+        self.list_of_nans = get_list_of_nans_from_traj(
+            self.data["trajectories"], sort_by="start"
+        )
 
         if self.list_of_nans:
             self.next_episode(self.list_of_nans.pop(-1))
@@ -488,17 +474,18 @@ class trajectory_corrector(matplotlib_gui):
                 writer.writerows(self.list_of_jumps)
             print(f"List of jumps saved at {os.path.abspath('list_of_jumps.csv')}")
 
-    def recenter(self):
-        if self.frame in self.interpolation_range:
-            self.x_center, self.y_center = self.interpolator(self.frame)
-        else:
-            self.x_center, self.y_center = self.id_traj[self.frame]
-        self.set_ax_lims(do_not_draw=True)
-
     def key_g(self):
         """Apply key d and key x sequentially"""
         self.key_d(draw=False)
         self.key_x(recenter=True)
+
+    def key_c(self, draw=True):
+        """Centers the image to the current fish"""
+        if self.frame in self.interpolation_range:
+            self.x_center, self.y_center = self.interpolator(self.frame)
+        else:
+            self.x_center, self.y_center = self.id_traj[self.frame]
+        self.set_ax_lims(draw=draw)
 
     def key_G(self):
         """Apply key g until the end of the episode is reached"""
@@ -522,18 +509,26 @@ class trajectory_corrector(matplotlib_gui):
             "right",
             "a",
             "left",
+            "c",
             "p",
             "P",
             "n",
             "z",
             "x",
             "g",
+            "G",
             "enter",
             "w",
             "h",
         ]
         table.add_column("Key", justify="center", style="cyan", no_wrap=True)
         table.add_column("Description", justify="center", style="magenta")
+
+        table.add_row("Left click", "Set the actual position of the blob manually")
+        table.add_row(
+            "Right click",
+            "Set the actual position of the blob by finding the nearest blob from the clicked location",
+        )
 
         for key in keys:
             table.add_row(key, getattr(self, f"key_{key}").__doc__)
@@ -545,9 +540,9 @@ class trajectory_corrector(matplotlib_gui):
         console.print(table)
 
     def key_x(self, recenter=False):
-        """Set the actual position of the blob by finding the center of mass of the image drawned around the interpolated position"""
+        """Set the actual position of the blob by finding the nearest blob from the interpolated location"""
         if recenter:
-            self.recenter()
+            self.key_c(draw=False)
         if self.frame in self.interpolation_range:
             self.find_blob(*self.interpolator(self.frame))
 
@@ -563,12 +558,8 @@ class trajectory_corrector(matplotlib_gui):
         ret, image = self.cap.read()
         assert ret
 
-        image = self.process_image(image, *self.limits)
-        # np.save(path, image)
+        image = self.process_image(image, self.xmin, self.xmax, self.ymin, self.ymax)
         return image
-        # return np.ma.masked_invalid(
-        #     self.process_image(image, *self.limits)
-        # ).shrink_mask()
 
     @staticmethod
     def process_image(image, xmin, xmax, ymin, ymax):
@@ -582,14 +573,14 @@ class trajectory_corrector(matplotlib_gui):
         if x <= self.xmin or x >= self.xmax or y >= self.ymax or y <= self.ymin:
             return
 
-        canvas_x_min = max(0, int(x - self.BL - self.xmin))
-        canvas_y_min = max(0, int(y - self.BL - self.ymin))
+        canvas_x_min = max(0, int(x - self.data["body_length"] - self.xmin))
+        canvas_y_min = max(0, int(y - self.data["body_length"] - self.ymin))
 
         canvas_center = (x - canvas_x_min - self.xmin, y - canvas_y_min - self.ymin)
 
         fish_im = self.get_frame(self.frame)[
-            canvas_y_min : int(y + self.BL - self.ymin),
-            canvas_x_min : int(x + self.BL - self.xmin),
+            canvas_y_min : int(y + self.data["body_length"] - self.ymin),
+            canvas_x_min : int(x + self.data["body_length"] - self.xmin),
         ]
 
         fish_im = cv2.GaussianBlur(fish_im, (0, 0), 2)
@@ -601,8 +592,13 @@ class trajectory_corrector(matplotlib_gui):
             cv2.THRESH_BINARY + cv2.THRESH_OTSU,
         )
 
-        contours, hierarchy = cv2.findContours(
+        findContours_out = cv2.findContours(
             1 - mask, cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE
+        )
+
+        # Compatibility problems...
+        contours = (
+            findContours_out[0] if len(findContours_out) == 2 else findContours_out[1]
         )
 
         blobs_positions = []

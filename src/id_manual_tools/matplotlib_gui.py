@@ -2,7 +2,7 @@ import matplotlib.pyplot as plt
 
 
 class matplotlib_gui:
-    """Thats a base class for building ultra simple matplotlib aplications with background images. Used in get_corners and correct_trajectories"""
+    """Thats a base class for building ultra simple matplotlib applications with background images. Used in get_corners and correct_trajectories"""
 
     def draw_and_flush(self):
         self.fig.canvas.draw()
@@ -17,6 +17,7 @@ class matplotlib_gui:
         self.y_center = 0
         self.mouse_pressed = False
         self.has_moved = False
+        self.Delta = 1
 
         self.fig = plt.figure(figsize=(8, 8))
         self.ax = self.fig.add_axes(
@@ -92,7 +93,7 @@ class matplotlib_gui:
         self.canvas_size = (event.width, event.height)
         self.set_ax_lims()
 
-    def set_ax_lims(self, do_not_draw=False):
+    def set_ax_lims(self, draw=True):
         self.ax.set(
             xlim=(
                 self.x_center - self.zoom * self.Lx,
@@ -103,5 +104,5 @@ class matplotlib_gui:
                 self.y_center - self.zoom * self.Ly,
             ),
         )
-        if not do_not_draw:
+        if draw:
             self.fig.canvas.draw()
