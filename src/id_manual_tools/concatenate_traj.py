@@ -7,6 +7,8 @@ from argparse import ArgumentParser
 from rich import print
 
 # from idmatcherai.idmatcherai import IdMatcherAi
+# TODO implement idmatcher
+# TODO add min distance check to match identities if idmatcher doesn't work (or to double-check)
 
 
 def arg_main(
@@ -137,7 +139,7 @@ def arg_main(
         )
 
         ax[i - 1].set(
-            title=(session_names[i] + " + \n" + session_names[i - 1]),
+            title=(session_names[i - 1] + " + \n" + session_names[i]),
             aspect=1,
             xticks=(),
             yticks=(),
@@ -174,8 +176,7 @@ def main():
     )
 
     parser.add_argument(
-        "s",
-        metavar="session",
+        "sessions",
         help="idTracker.ai successful sessions directories or trajectory files to concatenate (ordered)",
         type=str,
         action="store",

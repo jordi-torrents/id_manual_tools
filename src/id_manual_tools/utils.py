@@ -2,6 +2,8 @@ import os
 from numpy import load
 from shutil import copyfile
 
+# TODO. It should be okay if there is trajectories_wo_gaps_corrected.npy and no trajectories_wo_gaps.npy
+
 
 def trajectory_path(session_path, reset=False, read_only=False):
     if os.path.basename(session_path).startswith("session_") or session_path.startswith(

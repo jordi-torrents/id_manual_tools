@@ -186,7 +186,16 @@ This tool can also be used to correct suspicious high velocities (jumps) using a
 
 ### 5.4 `id_manual_tools_concatenate_traj`
 
-If your video has been tracked in chunks. You can concatenate them with this tool. It is a wrapper of [idmatcher](https://gitlab.com/polavieja_lab/idmatcherai)
+If your video has been tracked in chunks. You can concatenate them with this tool but first of all you have to match them. This can be done with [idmatcher](https://gitlab.com/polavieja_lab/idmatcherai).
+
+Since this repo is a bit out-of-date, in the computer there is a the idmatcher directory and, if you have `session_A` `session_B` `session_C`, you can use it like
+
+```
+python idmatcher/main.py -sA session_A -sB session_B
+python idmatcher/main.py -sA session_A -sB session_C
+```
+
+An additional folder will appear inside each session folder. Then you will be able to concatenate them.
 
 ### 5.5 `id_manual_tools_plot_traj`
 
