@@ -162,7 +162,7 @@ class trajectory_corrector(matplotlib_gui):
             print(f"{len(list_of_frames_to_preload)} frames to preload")
             if list_of_frames_to_preload:
                 self.preload_frames_list(
-                    list_of_frames_to_preload.sort(), n_cores=n_cores
+                    sorted(list_of_frames_to_preload), n_cores=n_cores
                 )
 
             self.create_figure()
