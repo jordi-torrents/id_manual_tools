@@ -19,7 +19,7 @@ id_manual_tools is a set of tools to use after a video has been tracked with idT
     - [3.2 segmentation parameters](#32-segmentation-parameters)
   - [4 Running idTracker.ai from terminal](#4-running-idtrackerai-from-terminal)
     - [4.1 Commands to run idTracker.ai from terminal](#41-commands-to-run-idtrackerai-from-terminal)
-  - [4.2 idTracker.ai logger](#42-idtrackerai-logger)
+    - [4.2 idTracker.ai logger](#42-idtrackerai-logger)
   - [5 id_manual_tools](#5-id_manual_tools)
     - [5.1 `id_manual_tools_get_nans`](#51-id_manual_tools_get_nans)
     - [5.2 `id_manual_tools_set_corners`](#52-id_manual_tools_set_corners)
@@ -142,7 +142,7 @@ And run it like `nohup ./script.sh &`
 
 Keep track of the output file to check the status of the program
 
-## 4.2 idTracker.ai logger
+### 4.2 idTracker.ai logger
 
 Even if you run idtracker actively on the terminal (so that the log is printed in screen) or on background (the log is written in a .log file), you have to check some important aspects.
 
