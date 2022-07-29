@@ -4,7 +4,9 @@ from shutil import copyfile
 
 
 def trajectory_path(session_path, reset=False, read_only=False):
-    if os.path.basename(session_path).startswith("session_"):
+    if os.path.basename(session_path).startswith("session_") or session_path.startswith(
+        "session_"
+    ):
         session_path = os.path.abspath(session_path)
     else:
         session_path = os.path.abspath("session_" + session_path)

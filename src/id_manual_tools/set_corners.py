@@ -46,7 +46,7 @@ class setup_points_setter(matplotlib_gui):
         self.y_center = self.ymax / 2
 
         self.zoom = self.ymax / (2 * self.Ly)
-        self.set_ax_lims(do_not_draw=True)
+        self.set_ax_lims(draw=False)
 
         self.draw_frame()
         plt.show()
