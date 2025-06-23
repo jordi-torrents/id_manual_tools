@@ -3,6 +3,9 @@
   <img src="https://github.com/jordi-torrents/id_manual_tools/raw/master/images/fishes.gif" alt="id_manual_tools"/>
 </p>
 
+> [!WARNING]  
+> THIS PACKAGE HAS BEEN ARCHIVED, ALL THE NICE THINGS I DID IN HERE ARE EITHER DEPRECATED OR IMPLEMENTED IN THE LATEST IDTRACKER.AI
+
 id_manual_tools is a set of tools to use after a video has been tracked with idTracker.ai. They work on Python and are capable of visually correcting trajectories of animals, concatenate trajectory files and render awesome videos like the one above.
 
 ---
